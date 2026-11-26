@@ -1,0 +1,353 @@
+% Compilazione: xelatex -interaction=nonstopmode -halt-on-error slides.tex
+% Il riferimento NLP è un PDF 4:3 di 720 x 540 pt con Arial e logo UniBo.
+\documentclass[20pt,aspectratio=43]{beamer}
+\usepackage[italian]{babel}
+\usepackage{lmodern}
+\usepackage{fontspec}
+\setsansfont{Arial}
+\setmainfont{Arial}
+\setmonofont{Consolas}
+\usefonttheme{professionalfonts}
+\usepackage{amsmath,amssymb,booktabs,tabularx,array}
+\usepackage[absolute,overlay]{textpos}
+\geometry{paperwidth=720bp,paperheight=540bp}
+\textblockorigin{0bp}{0bp}
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{headline}{}
+\setbeamertemplate{footline}{}
+\setbeamercolor{normal text}{fg=black,bg=white}
+\setbeamercolor{structure}{fg=black}
+\setbeamertemplate{itemize items}[circle]
+\hypersetup{pdftitle={PoS tagging italiano con encoder e LLM},pdfauthor={Pierre Errico},colorlinks=true,urlcolor=black}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\newcommand{\slidetitle}[1]{%
+  \begin{textblock*}{52bp}(0bp,0bp)\includegraphics[width=52bp,height=60.5bp]{assets/unibo-slide-logo.png}\end{textblock*}%
+  \begin{textblock*}{650.9bp}(0bp,59.7bp){\color{gray}\rule{650.9bp}{0.7bp}}\end{textblock*}%
+  \begin{textblock*}{648bp}(36bp,12bp)\centering\fontsize{40bp}{45bp}\selectfont #1\end{textblock*}%
+}
+\newenvironment{slidebody}[1][92]{\begin{textblock*}{643bp}(43bp,#1bp)\fontsize{22bp}{26.4bp}\selectfont\raggedright\setlength{\parindent}{0bp}\setlength{\parskip}{12bp}}{\end{textblock*}}
+\newenvironment{slideitems}{\begin{list}{\textbullet}{\setlength{\leftmargin}{30bp}\setlength{\labelsep}{12bp}\setlength{\itemsep}{11bp}\setlength{\parsep}{0bp}\setlength{\topsep}{5bp}}}{\end{list}}
+\newcommand{\source}[1]{\begin{textblock*}{643bp}(43bp,511bp)\fontsize{11bp}{13bp}\selectfont #1\end{textblock*}}
+\newcommand{\modelid}[1]{{\fontsize{15bp}{18bp}\selectfont\texttt{#1}}}
+\newcommand{\smallbody}{\fontsize{20bp}{24bp}\selectfont}
+
+\begin{document}
+
+\begin{frame}[plain]
+\slidetitle{}
+\begin{textblock*}{643bp}(43bp,127bp)
+\centering\fontsize{36bp}{43bp}\selectfont\bfseries PoS tagging italiano\\con encoder e LLM
+\end{textblock*}
+\begin{textblock*}{643bp}(43bp,241bp)
+\centering\fontsize{22bp}{27bp}\selectfont Fine-tuning e ablation\\dell'informazione sulle maiuscole
+\end{textblock*}
+\begin{textblock*}{643bp}(43bp,329bp)
+\centering\fontsize{25bp}{30bp}\selectfont Pierre Errico
+\end{textblock*}
+\begin{textblock*}{643bp}(43bp,405bp)
+\centering\fontsize{22bp}{29bp}\selectfont Progetto di Intelligenza Artificiale\\LM Informatica\\Anno Accademico 2026/2027
+\end{textblock*}
+\end{frame}
+
+\begin{frame}[plain]
+\slidetitle{Task e dati}
+\begin{slidebody}
+Il \textbf{PoS tagging} assegna a ogni parola una categoria grammaticale nel contesto della frase. Il progetto predice i \textbf{17 tag UPOS} di Universal Dependencies.
+
+\smallbody
+\begin{tabularx}{\linewidth}{@{}lrrY@{}}
+\toprule
+\textbf{Split} & \textbf{Frasi} & \textbf{Parole} & \textbf{Uso}\\
+\midrule
+Training & 13.121 & 276.014 & Apprendimento\\[7bp]
+Development & 564 & 11.907 & Selezione checkpoint\\[7bp]
+Test & 482 & 10.417 & Valutazione finale\\
+\bottomrule
+\end{tabularx}
+
+\begin{slideitems}
+\item \textbf{UD Italian-ISDT 2.15 da Hugging Face}, con revisione fissata e split ufficiali.
+\item \textbf{Parole e confini di frase gold} per tutti i sistemi. Nessuna annotazione UPOS entra nell'input di test.
+\end{slideitems}
+\end{slidebody}
+\source{Fonte: Universal Dependencies. Token e UPOS verificati rispetto alla release ISDT 2.15.}
+\end{frame}
+
+\begin{frame}[plain]
+\slidetitle{Metriche UPOS}
+\begin{slidebody}[87]
+\smallbody
+L'\textbf{accuracy} misura la frazione di parole con tag corretto. Per ogni categoria $k$, $TP_k$, $FP_k$ e $FN_k$ contano veri positivi, falsi positivi e falsi negativi.
+\[
+ P_k=\frac{TP_k}{TP_k+FP_k},\qquad
+ R_k=\frac{TP_k}{TP_k+FN_k},\qquad
+ F1_k=\frac{2TP_k}{2TP_k+FP_k+FN_k}.
+\]
+La \textbf{macro-F1} è la media degli F1 per categoria, con uguale peso a ogni classe. Un denominatore nullo produce punteggio zero.
+\begin{slideitems}
+\item \textbf{Totale:} inventario fisso dei 17 tag. È anche il criterio di selezione sul development.
+\item \textbf{Classi presenti:} solo categorie con supporto gold positivo nello split. Nel test sono 15, senza \texttt{INTJ} e \texttt{PART}.
+\end{slideitems}
+L'accuracy descrive la correttezza globale. La macro-F1 rende visibili anche le difficoltà sulle classi rare.
+\end{slidebody}
+\source{Definizioni applicate a tutti i modelli. Macro-F1 totale sul test: massimo teorico 15/17.}
+\end{frame}
+
+\begin{frame}[plain]
+\slidetitle{Modelli a confronto}
+\begin{slidebody}
+\smallbody
+\begin{tabularx}{\linewidth}{@{}L{145bp}YY@{}}
+\toprule
+\textbf{Modello} & \textbf{Scelta} & \textbf{Adattamento}\\
+\midrule
+\textbf{BERT italiano XXL} & Encoder bidirezionale italiano, preaddestrato su un corpus ampliato con OSCAR. & Fine-tuning dell'encoder e classificazione per parola.\\[12bp]
+\textbf{ELECTRA italiano XXL} & Secondo encoder italiano, con pretraining basato sul riconoscimento di token sostituiti. & Stesso pooling e stessa testa di BERT.\\[12bp]
+\textbf{Qwen2.5 1.5B Instruct} & Generativo multilingue, con supporto all'italiano e output strutturati. & Fine-tuning supervisionato con adapter LoRA.\\
+\bottomrule
+\end{tabularx}
+
+I tre checkpoint consentono di confrontare \textbf{due encoder} e una \textbf{formulazione generativa} dello stesso compito.
+\end{slidebody}
+\source{DBMDZ: BERT/ELECTRA XXL. Qwen: Qwen2.5-1.5B-Instruct, 1,54 miliardi di parametri.}
+\end{frame}
+
+\begin{frame}[plain]
+\slidetitle{Allineamento e mean pooling}
+\begin{slidebody}[88]
+Il tokenizer può dividere una parola in più subword. \texttt{word\_ids} mantiene la corrispondenza con la parola di origine.
+\[
+ \mathbf h_i^{\mathrm{parola}}
+ =\frac{1}{|S_i|}\sum_{t\in S_i}\mathbf h_t,
+ \qquad S_i=\{\text{subword della parola }i\}.
+\]
+\begin{slideitems}
+\item \textbf{Aggregazione esplicita:} la media usa gli hidden state finali di tutti i frammenti e produce un vettore per parola.
+\item \textbf{Una sola decisione:} la testa lineare assegna un tag UPOS. Token speciali e padding sono esclusi.
+\item \textbf{Scelta semplice:} dimensione costante e nessun parametro aggiuntivo per il pooling.
+\end{slideitems}
+\smallbody
+La prima subword era già contestualizzata dalle altre. Il pooling cambia l'aggregazione, senza garantire a priori un miglioramento.
+\end{slidebody}
+\source{Mean pooling per BERT ed ELECTRA. \'Acs et al., \href{https://aclanthology.org/2021.eacl-main.194/}{Subword Pooling Makes a Difference}, EACL 2021.}
+\end{frame}
+
+\begin{frame}[plain]
+\slidetitle{Loss degli encoder}
+\begin{slidebody}
+Ogni parola ha \textbf{un solo tag gold} fra 17 categorie. La testa lineare produce gli score e la softmax definisce le probabilità.
+\[
+ \mathcal L_{\mathrm{UPOS}}
+ =-\frac{1}{N}\sum_{i=1}^{N}\log p_\theta(y_i\mid x).
+\]
+\begin{slideitems}
+\item \textbf{Cross-entropy:} massimizza la probabilità del tag corretto ed è differenziabile rispetto a testa ed encoder.
+\item \textbf{Media sulle parole valide:} ogni parola ha lo stesso peso, anche quando il tokenizer produce molti frammenti.
+\item \textbf{Obiettivo unico:} il piano principale predice UPOS. Non introduce loss morfologiche o pesi multitask.
+\end{slideitems}
+\end{slidebody}
+\source{BERT ed ELECTRA: stesso obiettivo supervisionato. Classi non pesate nella configurazione iniziale.}
+\end{frame}
+
+\begin{frame}[plain]
+\slidetitle{PoS tagging generativo}
+\begin{slidebody}
+Qwen riceve la frase con \textbf{parole gold numerate} e deve generare una lista ordinata di tag UPOS.
+
+\smallbody
+\textbf{Esempio illustrativo}
+\begin{quote}\upshape
+\texttt{1: Il\quad 2: gatto\quad 3: dorme}\\[8bp]
+\texttt{["DET", "NOUN", "VERB"]}
+\end{quote}
+
+\begin{slideitems}
+\item \textbf{Stessa segmentazione} degli encoder, con esattamente un tag per parola.
+\item \textbf{Nessuna riscrittura delle parole:} il modello genera solo la lista JSON dei tag.
+\item \textbf{Controllo rigoroso:} JSON valido, lunghezza corretta e tag appartenenti all'inventario UPOS.
+\end{slideitems}
+\end{slidebody}
+\source{Checkpoint: Qwen/Qwen2.5-1.5B-Instruct. L'esempio non rappresenta una predizione misurata.}
+\end{frame}
+
+\begin{frame}[plain]
+\slidetitle{Loss del modello generativo}
+\begin{slidebody}[88]
+Il fine-tuning supervisionato insegna a generare la risposta corretta, un token alla volta, condizionata al prompt e ai token precedenti.
+\[
+ \mathcal L_{\mathrm{LLM}}
+ =-\frac{1}{|A|}\sum_{t\in A}\log p_\theta(a_t\mid x,a_{<t}).
+\]
+\begin{slideitems}
+\item \textbf{Cross-entropy causale} sui token della risposta gold, inclusa la struttura del formato richiesto.
+\item \textbf{Prompt mascherato nella loss:} apprendere la risposta evita di spendere l'obiettivo sulla copia dell'input.
+\item \textbf{Training con teacher forcing, valutazione con generazione:} al test i tag precedenti sono prodotti dal modello.
+\end{slideitems}
+\smallbody
+Le loss degli encoder sono mediate sulle parole, quella di Qwen sui token della risposta. I loro valori grezzi non costituiscono una graduatoria comune.
+\end{slidebody}
+\source{SFT con loss solo sulla risposta. Il confronto tra sistemi usa le metriche UPOS definite prima.}
+\end{frame}
+
+\begin{frame}[plain]
+\slidetitle{Fine-tuning con QLoRA}
+\begin{slidebody}
+Qwen richiede più memoria degli encoder. \textbf{QLoRA} combina pesi di base quantizzati a 4 bit e piccoli adapter LoRA addestrabili.
+\begin{slideitems}
+\item \textbf{LoRA:} aggiorna matrici a rango ridotto all'interno del modello, riducendo i parametri da ottimizzare.
+\item \textbf{Quantizzazione:} riduce la memoria dei pesi di base. Il modello continua ad adattarsi attraverso gli adapter.
+\item \textbf{Configurazione iniziale:} rango 16, fattore di scala 32, dropout 0,05. I valori sono scelte di partenza da documentare.
+\end{slideitems}
+\smallbody
+La macchina dispone di una RTX 4070 SUPER da 12 GB. Una prova preliminare deve verificare lunghezza, batch e consumo effettivo.
+\end{slidebody}
+\source{Hu et al., LoRA, 2021. Dettmers et al., QLoRA, 2023. Hugging Face PEFT.}
+\end{frame}
+
+\begin{frame}[plain]
+\slidetitle{Training e selezione}
+\begin{slidebody}[89]
+\smallbody
+\begin{tabularx}{\linewidth}{@{}L{155bp}YY@{}}
+\toprule
+\textbf{Impostazione} & \textbf{BERT / ELECTRA} & \textbf{Qwen}\\
+\midrule
+Epoche massime & 10 & 3\\[7bp]
+Learning rate & $2\cdot10^{-5}$ & $2\cdot10^{-4}$\\[7bp]
+Batch training & 8 & 1, accumulo su 8 step\\[7bp]
+Lunghezza limite & 512 subword & 3.072 token totali\\[7bp]
+Ottimizzazione & Encoder e testa & Adapter LoRA\\
+\bottomrule
+\end{tabularx}
+
+\begin{slideitems}
+\item \textbf{AdamW e tre seed:} 42, 123, 456. Configurazioni iniziali, senza ricerca sul test.
+\item \textbf{Checkpoint:} massimo della macro-F1 totale sul development, con vera generazione per Qwen.
+\item \textbf{Copertura verificata:} Qwen richiede fino a 2.907 token. Il limite 3.072 evita troncamenti. Il test resta riservato alla valutazione finale.
+\end{slideitems}
+\end{slidebody}
+\source{Budget diversi per famiglia: confronto delle configurazioni descritte, non a parità di calcolo.}
+\end{frame}
+
+\begin{frame}[plain]
+\slidetitle{Ablation delle maiuscole}
+\begin{slidebody}
+Lo studio rimuove \textbf{la stessa informazione dall'input} di tutti i modelli: la distinzione fra maiuscole e minuscole.
+
+\smallbody
+\begin{tabularx}{\linewidth}{@{}L{150bp}YY@{}}
+\toprule
+ & \textbf{Originale} & \textbf{Ablation}\\
+\midrule
+Input & \texttt{Maria vive a Roma} & \texttt{maria vive a roma}\\[10bp]
+Gold UPOS & Identico & Identico\\[10bp]
+Training / dev / test & Testo originale & Testo tutto minuscolo\\
+\bottomrule
+\end{tabularx}
+
+\begin{slideitems}
+\item \textbf{Ipotesi:} le maiuscole possono aiutare soprattutto il riconoscimento dei nomi propri.
+\item \textbf{Varianti riaddestrate separatamente,} con stessi split, seed e protocollo all'interno di ogni modello.
+\end{slideitems}
+\end{slidebody}
+\source{La trasformazione può modificare anche la tokenizzazione: si misura l'effetto sul sistema completo.}
+\end{frame}
+
+\begin{frame}[plain]
+\slidetitle{Piano sperimentale}
+\begin{slidebody}
+\smallbody
+\begin{tabularx}{\linewidth}{@{}L{200bp}YY@{}}
+\toprule
+\textbf{Modello} & \textbf{Originale} & \textbf{Minuscolo}\\
+\midrule
+BERT italiano XXL & 3 seed & 3 seed\\[15bp]
+ELECTRA italiano XXL & 3 seed & 3 seed\\[15bp]
+Qwen2.5 1.5B Instruct & 3 seed & 3 seed\\
+\bottomrule
+\end{tabularx}
+
+\begin{center}
+\fontsize{28bp}{34bp}\selectfont\textbf{3 modelli, 2 condizioni, 3 seed: 18 training}
+\end{center}
+
+\begin{slideitems}
+\item \textbf{Scarto appaiato per seed:} punteggio con input minuscolo meno punteggio originale.
+\item \textbf{Media e deviazione standard campionaria} delle metriche e degli scarti.
+\end{slideitems}
+\end{slidebody}
+\source{La CRF resta un approfondimento opzionale. Non compare nei run del piano principale.}
+\end{frame}
+
+\begin{frame}[plain]
+\slidetitle{Valutazione ed errori}
+\begin{slidebody}
+Ogni sistema viene valutato sulle \textbf{stesse parole}, con accuracy, macro-F1 totale e sulle classi presenti.
+\begin{slideitems}
+\item \textbf{Per categoria:} precision, recall, F1 e supporto, per leggere le differenze sulle classi rare.
+\item \textbf{Confusioni ed esempi contestuali:} nomi comuni e propri, ambiguità verbali e parole poco frequenti.
+\item \textbf{Output Qwen non valido:} JSON errato, numero di tag diverso o etichette sconosciute rendono errata l'intera frase. Ogni parola resta nel denominatore.
+\end{slideitems}
+\smallbody
+Il \textbf{tasso di risposte non valide} è il numero di frasi con output non valido diviso il totale delle frasi. Si riporta insieme alle metriche linguistiche.
+\end{slidebody}
+\source{Le frasi problematiche non vengono rimosse dal test. Le predizioni e gli errori restano salvati.}
+\end{frame}
+
+\begin{frame}[plain]
+\slidetitle{Risultati e limiti del confronto}
+\begin{slidebody}
+\textbf{Il nuovo piano non è ancora stato addestrato.} I punteggi del progetto NLP descrivono checkpoint e allineamento diversi e non sono risultati di questi esperimenti.
+\begin{slideitems}
+\item \textbf{Confronto da produrre:} prestazioni UPOS, variazione dovuta alle maiuscole, errori e costo computazionale misurato.
+\item \textbf{Interpretazione:} cambiano pretraining, tokenizer, dimensione, obiettivo e metodo di adattamento. Gli scarti confrontano sistemi completi.
+\item \textbf{Ambito:} un corpus italiano, segmentazione gold e tre seed. Il testo grezzo e altri domini richiedono ulteriori verifiche.
+\end{slideitems}
+\smallbody
+La CRF e l'estensione FEATS restano possibili sviluppi successivi al confronto principale.
+\end{slidebody}
+\end{frame}
+
+\begin{frame}[plain]
+\slidetitle{Fonti dei modelli e dei dati}
+\begin{slidebody}[94]
+\smallbody
+\textbf{Dataset e annotazioni}\\
+\href{https://huggingface.co/datasets/universal-dependencies/universal_dependencies}{Universal Dependencies su Hugging Face}, configurazione \texttt{it\_isdt}, release 2.15. Revisione del dataset fissata nel notebook.
+
+\textbf{Encoder italiani}\\
+\href{https://huggingface.co/dbmdz/bert-base-italian-xxl-cased}{\modelid{dbmdz/bert-base-italian-xxl-cased}}\\[5bp]
+\href{https://huggingface.co/dbmdz/electra-base-italian-xxl-cased-discriminator}{\modelid{dbmdz/electra-base-italian-xxl-cased-discriminator}}
+
+\textbf{Generativo}\\
+\href{https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct}{\modelid{Qwen/Qwen2.5-1.5B-Instruct}}
+
+\textbf{Pretraining}\\
+Devlin et al., \emph{BERT}, NAACL 2019.\\
+Clark et al., \emph{ELECTRA}, ICLR 2020.\\
+Qwen Team, \emph{Qwen2.5 Technical Report}, 2024.
+\end{slidebody}
+\source{Revisioni e parametri nel notebook. Impostazioni salvate per ogni esecuzione.}
+\end{frame}
+
+\begin{frame}[plain]
+\slidetitle{Fonti dei metodi}
+\begin{slidebody}[96]
+\smallbody
+\textbf{Adattamento efficiente}\\
+Hu et al., \href{https://arxiv.org/abs/2106.09685}{\emph{LoRA: Low-Rank Adaptation of Large Language Models}}, 2021.\\[8bp]
+Dettmers et al., \href{https://arxiv.org/abs/2305.14314}{\emph{QLoRA: Efficient Finetuning of Quantized LLMs}}, 2023.
+
+\textbf{Implementazione}\\
+Hugging Face, \href{https://huggingface.co/docs/transformers/tasks/token_classification}{\emph{Token Classification}} e \href{https://huggingface.co/docs/peft/developer_guides/quantization}{\emph{PEFT Quantization}}.\\[8bp]
+PyTorch, \href{https://docs.pytorch.org/docs/stable/generated/torch.nn.CrossEntropyLoss.html}{\emph{CrossEntropyLoss}}.
+
+\textbf{Valutazione}\\
+Scikit-learn, \href{https://scikit-learn.org/stable/modules/model_evaluation.html}{\emph{Metrics and scoring}}.\\[8bp]
+Reimers e Gurevych, \emph{Reporting Score Distributions Makes a Difference}, EMNLP 2017.
+\end{slidebody}
+\source{Le fonti complete e le motivazioni delle scelte sono riportate nella relazione.}
+\end{frame}
+
+\end{document}

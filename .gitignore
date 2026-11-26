@@ -1,0 +1,39 @@
+# Environments, caches and generated experiment artifacts
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ipynb_checkpoints/
+.pytest_cache/
+.ruff_cache/
+.cache/
+data/
+outputs/
+tmp/
+dist/
+build/
+
+# LaTeX intermediates; final PDFs and editable sources stay versioned
+*.aux
+*.bbl
+*.bcf
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.nav
+*.out
+*.run.xml
+*.snm
+*.synctex.gz
+*.toc
+*.vrb
+*.xdv
+docs/slides/.build/
+docs/report/.build/
+
+# Operating system files
+.DS_Store
+Thumbs.db
+Desktop.ini
