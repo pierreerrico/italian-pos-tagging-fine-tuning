@@ -1,4 +1,8 @@
 {
+    "latex-workshop.latex.autoBuild.run": "onFileChange",
+    "latex-workshop.latex.outDir": "%DIR%",
+    "latex-workshop.latex.auxDir": "%DIR%/.build",
+    "latex-workshop.view.pdf.viewer": "tab",
     "files.encoding": "utf8",
     "files.eol": "\n",
     "git.openRepositoryInParentFolders": "never",

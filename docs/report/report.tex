@@ -7,6 +7,7 @@
 \usepackage{amsmath,amssymb,booktabs,tabularx,array}
 \usepackage[table]{xcolor}
 \usepackage{graphicx,placeins,float}
+\usepackage{xltabular}
 \usepackage{xurl,hyperref}
 \hypersetup{colorlinks=true,linkcolor=black,citecolor=black,urlcolor=blue!60!black}
 \setlength{\parskip}{0.25em}
@@ -58,47 +59,271 @@ Questa versione descrive il protocollo sperimentale e le scelte implementative. 
 \chapter{Introduzione}
 \label{chap:introduction}
 \section{Annotazione di categorie grammaticali}
-Il Part-of-Speech (PoS) tagging è un compito di etichettatura di sequenze: a ogni parola si assegna una categoria grammaticale coerente con il contesto della frase. Il risultato può alimentare operazioni successive, come la lemmatizzazione e l'analisi sintattica. Una difficoltà centrale è l'ambiguità lessicale: \emph{porta} è un nome in «La porta è chiusa» e un verbo in «Lui porta il libro»~\cite{manning2011}.
+\label{sec:grammatical-categories}
 
-Universal Dependencies (UD) definisce convenzioni condivise per annotare categorie grammaticali, caratteristiche morfologiche e dipendenze sintattiche in molte lingue~\cite{ud}. Il presente lavoro considera le diciassette categorie universali UPOS, elencate nella Tabella~\ref{tab:upos}. Le caratteristiche morfologiche del campo \texttt{FEATS} e le relazioni di dipendenza costituiscono annotazioni distinte e non sono obiettivi del training principale.
+Nella linguistica computazionale, il Part-of-Speech (PoS) tagging è un compito di etichettatura di sequenze di token, nel quale a ogni token viene assegnata un'etichetta che ne identifica la categoria grammaticale nel contesto della frase. Un token corrisponde generalmente a una parola; può tuttavia indicare anche altri elementi linguistici, come simboli e punteggiatura. Il PoS tagging riveste un ruolo fondamentale per l'analisi linguistica e costituisce una fase preliminare per numerose applicazioni di Natural Language Processing (NLP), tra cui la lemmatizzazione, l'analisi sintattica e la traduzione automatica~\cite{manning2011}.
 
-\begin{table}[!htbp]
-\centering\small
-\begin{tabularx}{\textwidth}{llX}
+Universal Dependencies (UD) è un framework per l'annotazione linguistica che definisce convenzioni condivise per la rappresentazione delle categorie grammaticali, delle caratteristiche morfologiche e delle relazioni sintattiche in numerose lingue, tra cui l'italiano~\cite{ud}. La standardizzazione delle annotazioni e la disponibilità di corpora multilingue ne favoriscono l'impiego nella ricerca e nello sviluppo di modelli NLP.
+
+In particolare, UD definisce un inventario di 17 categorie grammaticali universali, denominate Universal Part-of-Speech (UPOS) tags~\cite{upos}. Le caratteristiche morfologiche, come genere, numero e tempo verbale, sono rappresentate separatamente, quando applicabili, mediante gli attributi del campo \texttt{FEATS}~\cite{conllu}. La Tabella~\ref{tab:upos} riporta le categorie UPOS, accompagnate da esempi contestuali in italiano e dagli attributi FEATS attestati nel corpus annotato UD Italian-ISDT (Italian Stanford Dependency Treebank) v2.15. Questi ultimi comprendono tutti gli attributi presenti almeno una volta nelle annotazioni di ciascuna categoria, anche in casi rari, e non sono pertanto necessariamente applicabili a tutti i token appartenenti alla stessa categoria.
+
+\begingroup
+\footnotesize
+\setlength{\LTpre}{6pt}
+\setlength{\LTpost}{6pt}
+\setlength{\tabcolsep}{4pt}
+\newcommand{\rowseparator}{%
+    \arrayrulecolor{black!20}%
+    \midrule
+    \arrayrulecolor{black}%
+}
+\begin{xltabular}{\textwidth}{
+    l
+    >{\raggedright\arraybackslash}p{2.6cm}
+    >{\raggedright\arraybackslash}X
+    >{\raggedright\arraybackslash}p{3.4cm}
+}
+\caption{Categorie UPOS, esempi contestuali in italiano e attributi morfologici FEATS attestati nel treebank UD Italian-ISDT v2.15. Il trattino indica l'assenza di attributi attestati o di un esempio contestuale. Per \texttt{PART} non è riportato un esempio in italiano, poiché nel corpus il tag è utilizzato per il marcatore possessivo inglese.}
+\label{tab:upos}\\
+
 \toprule
-Tag & Categoria & Esempio contestuale\\
+\textbf{Tag UPOS} &
+\textbf{Categoria grammaticale} &
+\textbf{Esempio contestuale} &
+\textbf{FEATS attestati}\\
 \midrule
-\texttt{ADJ} & Aggettivo & Il gatto è \textbf{nero}.\\
-\texttt{ADP} & Adposizione & Vado \textbf{a} casa.\\
-\texttt{ADV} & Avverbio & Il gatto dorme \textbf{tranquillamente}.\\
-\texttt{AUX} & Ausiliare & Maria \textbf{ha} mangiato.\\
-\texttt{CCONJ} & Congiunzione coordinante & Leggo \textbf{e} scrivo.\\
-\texttt{DET} & Determinante & \textbf{Il} gatto dorme.\\
-\texttt{INTJ} & Interiezione & \textbf{Oh}, sei arrivato!\\
-\texttt{NOUN} & Nome comune & Il \textbf{gatto} dorme.\\
-\texttt{NUM} & Numerale & Ho \textbf{tre} libri.\\
-\texttt{PART} & Particella & Categoria universale dipendente dalla lingua.\\
-\texttt{PRON} & Pronome & \textbf{Lei} legge un libro.\\
-\texttt{PROPN} & Nome proprio & \textbf{Maria} legge un libro.\\
-\texttt{PUNCT} & Punteggiatura & Sei a casa\textbf{?}\\
-\texttt{SCONJ} & Congiunzione subordinante & Resto a casa \textbf{perché} piove.\\
-\texttt{SYM} & Simbolo & Il prezzo è 10 \textbf{\texteuro}.\\
-\texttt{VERB} & Verbo & Maria \textbf{legge} un libro.\\
-\texttt{X} & Altro & Elemento non classificabile nelle altre categorie.\\
+\endfirsthead
+
+\toprule
+\textbf{Tag UPOS} &
+\textbf{Categoria grammaticale} &
+\textbf{Esempio contestuale} &
+\textbf{FEATS attestati}\\
+\midrule
+\endhead
+
+\texttt{ADJ} & Aggettivo &
+Il gatto è \textbf{nero}. &
+\texttt{Degree}, \texttt{Gender}, \texttt{Number},
+\texttt{NumType}, \texttt{Poss}, \texttt{PronType},
+\texttt{Typo}\\
+\rowseparator
+
+\texttt{ADP} & Adposizione &
+Vado \textbf{a} casa. &
+\texttt{Gender}, \texttt{Number}\\
+\rowseparator
+
+\texttt{ADV} & Avverbio &
+Il gatto dorme \textbf{tranquillamente}. &
+\texttt{Degree}, \texttt{Gender}, \texttt{Number},
+\texttt{PronType}\\
+\rowseparator
+
+\texttt{AUX} & Verbo ausiliare &
+Maria \textbf{ha} mangiato. &
+\texttt{Gender}, \texttt{Mood}, \texttt{Number},
+\texttt{Person}, \texttt{Tense}, \texttt{VerbForm}\\
+\rowseparator
+
+\texttt{CCONJ} & Congiunzione coordinante &
+Leggo \textbf{e} scrivo. &
+--\\
+\rowseparator
+
+\texttt{DET} & Determinante &
+\textbf{Il} gatto dorme. &
+\texttt{Definite}, \texttt{Gender}, \texttt{Number},
+\texttt{Poss}, \texttt{PronType}\\
+\rowseparator
+
+\texttt{INTJ} & Interiezione &
+\textbf{Oh}, sei arrivato! &
+\texttt{Polarity}\\
+\rowseparator
+
+\texttt{NOUN} & Nome comune &
+Il \textbf{gatto} dorme. &
+\texttt{Foreign}, \texttt{Gender}, \texttt{Number},
+\texttt{Tense}, \texttt{VerbForm}\\
+\rowseparator
+
+\texttt{NUM} & Numerale &
+Ho \textbf{tre} libri. &
+\texttt{NumType}\\
+\rowseparator
+
+\texttt{PART} & Particella &
+-- &
+--\\
+\rowseparator
+
+\texttt{PRON} & Pronome &
+\textbf{Lei} legge un libro. &
+\texttt{Clitic}, \texttt{Gender}, \texttt{Number},
+\texttt{Person}, \texttt{Poss}, \texttt{PronType}\\
+\rowseparator
+
+\texttt{PROPN} & Nome proprio &
+\textbf{Maria} legge un libro. &
+\texttt{Foreign}, \texttt{Gender}, \texttt{Number},
+\texttt{NumType}\\
+\rowseparator
+
+\texttt{PUNCT} & Punteggiatura &
+Sei a casa\textbf{?} &
+--\\
+\rowseparator
+
+\texttt{SCONJ} & Congiunzione subordinante &
+Resto a casa \textbf{perché} piove. &
+\texttt{PronType}\\
+\rowseparator
+
+\texttt{SYM} & Simbolo &
+Il risultato è 2 \textbf{+} 3. &
+--\\
+\rowseparator
+
+\texttt{VERB} & Verbo &
+Il gatto \textbf{dorme}. &
+\texttt{Gender}, \texttt{Mood}, \texttt{Number},
+\texttt{Person}, \texttt{Tense}, \texttt{VerbForm}\\
+\rowseparator
+
+\texttt{X} & Altro &
+Ha pronunciato \textbf{xfgh}. &
+\texttt{Foreign}, \texttt{Gender}, \texttt{Number}\\
+
 \bottomrule
-\end{tabularx}
-\caption{Inventario UPOS. Gli esempi illustrano la categoria e non sostituiscono le convenzioni di annotazione del treebank~\cite{upos}.}
-\label{tab:upos}
-\end{table}
+\end{xltabular}
+\endgroup
 
-Il PoS tagging deve inoltre gestire parole rare, nomi propri e convenzioni ortografiche. Le classi hanno frequenze diverse: la buona predizione delle categorie più comuni può accompagnarsi a errori sistematici su quelle meno rappresentate. Per questa ragione il confronto richiede sia una misura complessiva sia una lettura delle prestazioni per categoria.
+A titolo di esempio, si consideri la frase «\emph{Il gatto dorme.}». Nell'ambito del PoS tagging, ai quattro token viene assegnata rispettivamente la sequenza di etichette \texttt{DET NOUN VERB PUNCT}. A queste annotazioni si aggiungono, quando applicabili, le informazioni morfologiche rappresentate nel campo \texttt{FEATS}. Il token «\emph{gatto}», ad esempio, è classificato come \texttt{NOUN} e presenta gli attributi \texttt{Gender=Masc|Number=Sing}, che ne specificano il genere maschile e il numero singolare.
 
-\section{Encoder contestuali e modelli generativi}
-Le rappresentazioni lessicali statiche associano alla parola un vettore indipendente dall'occorrenza. I modelli contestuali producono invece vettori che dipendono dalla frase, distinguendo gli impieghi dello stesso termine. Il Transformer usa la self-attention per combinare le rappresentazioni dei token e modellarne le relazioni~\cite{vaswani2017}.
+Nel presente progetto le caratteristiche morfologiche sono richiamate per descrivere le annotazioni del corpus, mentre il compito sperimentale riguarda soltanto la predizione dei tag UPOS. Il campo \texttt{FEATS} non viene fornito come input ai modelli e non costituisce un obiettivo di addestramento.
 
-BERT ed ELECTRA sono encoder bidirezionali: ogni posizione può integrare informazioni sia precedenti sia successive. Nel fine-tuning per UPOS, i vettori delle parole alimentano un classificatore supervisionato. BERT viene preaddestrato ricostruendo token mascherati; ELECTRA apprende a distinguere token originali e sostituzioni plausibili prodotte da un generatore~\cite{devlin2019,electra2020}. Tale generatore appartiene al preaddestramento di ELECTRA e non è il sistema generativo confrontato in questo progetto.
+\section{Le principali sfide del PoS tagging}
+\label{sec:pos-tagging-challenges}
+Una delle principali difficoltà del PoS tagging è rappresentata dall'ambiguità grammaticale: una stessa parola può appartenere a più categorie, e la scelta del tag corretto dipende dal contesto~\cite{manning2011}. Ad esempio, la parola \emph{porta} può essere un nome («\emph{La porta è chiusa.}») o un verbo («\emph{Lui porta il libro.}»).
 
-Qwen2.5 è invece una famiglia di modelli autoregressivi. Il checkpoint Instruct ha già ricevuto un adattamento a istruzioni e viene ulteriormente specializzato sul tagging italiano~\cite{qwen2024,qwenmodel}. Il suo output consiste in una sequenza testuale di tag. L'intera frase di input precede la risposta, così ogni tag generato può dipendere da tutte le parole fornite, pur attraverso un'architettura causale.
+Un altro problema risiede nello sbilanciamento della distribuzione dei tag: alcune categorie, come nomi comuni (\texttt{NOUN}), determinanti (\texttt{DET}) e adposizioni (\texttt{ADP}), sono molto frequenti, mentre altre, come simboli (\texttt{SYM}) ed elementi non classificabili nelle altre categorie (\texttt{X}), compaiono raramente~\cite{isdt}. La presenza di classi con pochi esempi può rendere più difficile l'apprendimento di modelli robusti e generalizzabili~\cite{he2009}.
+
+A ciò si aggiungono ulteriori problematiche:
+
+\begin{itemize}
+    \item la presenza di parole rare o non osservate durante l'addestramento, tra cui neologismi, termini specialistici e nomi propri, che possono risultare difficili da classificare. Alcune di queste possono inoltre essere assenti dal vocabolario del modello (Out-of-Vocabulary, OOV)~\cite{plank2016};
+    \item le differenze tra il dominio dei testi di addestramento e quello dei testi da analizzare, che possono ridurre la capacità di generalizzazione del modello~\cite{manning2011};
+    \item la predizione degli attributi morfologici del campo \texttt{FEATS}, che introduce ulteriori difficoltà dovute alla presenza di attributi applicabili soltanto a determinate categorie grammaticali e alla distribuzione sbilanciata dei relativi valori;
+    \item gli eventuali errori o incoerenze nelle annotazioni, che possono influenzare sia l'apprendimento sia la valutazione~\cite{manning2011}.
+\end{itemize}
+
+Queste problematiche motivano l'impiego di modelli capaci di costruire rappresentazioni linguistiche sensibili al contesto e di sfruttare conoscenze acquisite attraverso il preaddestramento su grandi quantità di dati testuali~\cite{devlin2019}.
+
+\section{Architettura BERT}
+\label{sec:bert-architecture}
+
+Le rappresentazioni lessicali statiche, come Word2Vec, associano a ogni parola un vettore indipendente dal contesto; RNN, LSTM e BiLSTM costruiscono invece rappresentazioni contestuali elaborando i token in sequenza~\cite{mikolov2013,goldberg2016,plank2016}. Il Transformer sostituisce la ricorrenza con la self-attention, modellando direttamente le relazioni tra posizioni anche distanti e favorendo la parallelizzazione~\cite{vaswani2017}.
+
+Tra i modelli basati sull'architettura Transformer, Bidirectional Encoder Representations from Transformers (BERT)~\cite{devlin2019} sfrutta un Transformer Encoder-only bidirezionale per produrre rappresentazioni contestuali dei token, risultando particolarmente adatto a compiti come il PoS tagging, nei quali la classificazione grammaticale dipende dal contesto frasale.
+
+\subsection{Tokenizzazione}
+\label{subsec:tokenization}
+
+L'input dell'encoder di BERT è costituito da token prodotti da WordPiece, un metodo di tokenizzazione che mantiene le parole intere oppure le suddivide in frammenti più piccoli (i.e. \textit{subword}), selezionati da un vocabolario predefinito. Ad esempio, il tokenizer associato al modello \texttt{dbmdz/bert-base-italian-xxl-cased} rappresenta \emph{bicicletta} con un singolo token, mentre suddivide \emph{casetta} in \texttt{case} e \texttt{\#\#tta} (il prefisso \texttt{\#\#} indica la continuazione della parola). Una parola assente dal training PoS può quindi essere rappresentata combinando subword già presenti nel vocabolario di BERT~\cite{devlin2019}.
+
+\subsection{Struttura dell'encoder}
+\label{subsec:encoder-structure}
+
+Il modello \texttt{dbmdz/bert-base-italian-xxl-cased} adotta la configurazione BERT-Base, composta da 12 blocchi Transformer Encoder, 12 teste di attenzione per blocco e rappresentazioni vettoriali di dimensione 768~\cite{bertxxl}. Le rappresentazioni vettoriali dei token (i.e. \textit{token embeddings}) vengono sommate agli embedding posizionali e di segmento, che codificano rispettivamente la posizione nella sequenza e l'appartenenza ai segmenti di testo. Le rappresentazioni risultanti attraversano i 12 blocchi in successione~\cite{devlin2019}. La Figura~\ref{fig:bert-encoder-structure} riassume il flusso delle rappresentazioni e la struttura interna di ciascun blocco.
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=0.90\textwidth]{figures/bert_encoder_structure.pdf}
+\caption{Struttura dell'encoder BERT-Base utilizzato nel progetto, con 12 teste di attenzione per blocco e vettori di 768 componenti. A sinistra, il flusso delle rappresentazioni procede dall'alto verso il basso attraverso i 12 blocchi; a destra, la struttura interna comune a tutti i blocchi, con attenzione bidirezionale, rete feed-forward e connessioni residue. La freccia di uscita mostra, come esempio, il passaggio dal primo al secondo blocco. Schema basato sull'architettura descritta da Devlin et al.~\cite{devlin2019}.}
+\label{fig:bert-encoder-structure}
+\end{figure}
+
+Ogni blocco comprende una Multi-Head Self-Attention e una rete feed-forward. La prima esegue più operazioni di attenzione in parallelo, mediante proiezioni query, key e value apprese per ciascuna testa. Le uscite vengono concatenate e proiettate nello spazio di dimensione 768~\cite{vaswani2017}. Per ciascuna testa, l'attenzione è calcolata come:
+
+\begin{equation}
+\label{eq:scaled-dot-product-attention}
+    \operatorname{Attention}(Q,K,V) =
+    \operatorname{softmax}\!\left(
+    \frac{QK^{\mathsf T}}{\sqrt{d_k}}
+    \right)V,
+\end{equation}
+
+dove $Q$, $K$ e $V$ sono matrici ottenute mediante proiezioni lineari apprese delle rappresentazioni in ingresso:
+\begin{itemize}
+    \item \textbf{Query ($Q$):} rappresentano le informazioni ricercate dai token;
+    \item \textbf{Key ($K$):} rappresentano le caratteristiche utilizzate per calcolare la compatibilità con le query;
+    \item \textbf{Value ($V$):} contengono le informazioni da aggregare mediante i pesi di attenzione.
+\end{itemize}
+
+Il prodotto $QK^{\mathsf T}$ determina i punteggi di compatibilità, scalati per $\sqrt{d_k}$, dove $d_k=768/12=64$ è la dimensionalità delle key per ciascuna testa. La softmax normalizza tali punteggi in pesi di attenzione, utilizzati per calcolare una combinazione pesata dei vettori value.
+
+La rete feed-forward applica indipendentemente a ciascun token due trasformazioni lineari, da 768 a 3\,072 componenti e viceversa, separate da un'attivazione GELU. Entrambi i sottolivelli impiegano dropout, connessioni residue e Layer Normalization per favorire la regolarizzazione e la stabilità dell'addestramento~\cite{devlin2019,vaswani2017}. Al termine dei 12 blocchi, l'encoder restituisce un vettore contestuale di 768 componenti per ciascun token, utilizzabile nei compiti supervisionati.
+
+\subsection{Preaddestramento}
+\label{subsec:pretraining}
+
+Nel BERT originale il preaddestramento combina il Masked Language Modeling (MLM) e la Next Sentence Prediction (NSP). Nel MLM viene selezionato casualmente il 15\% dei token della sequenza: di questi, l'80\% viene sostituito con il token speciale \texttt{[MASK]}, il 10\% con un token casuale e il restante 10\% rimane invariato. Il modello deve predire i token originali nelle posizioni selezionate, sfruttando il contesto bidirezionale. La NSP richiede invece di determinare se due segmenti di testo siano consecutivi nel corpus, mediante una classificazione binaria~\cite{devlin2019}.
+
+Attraverso il preaddestramento, BERT apprende rappresentazioni linguistiche contestuali da grandi quantità di testo, che possono successivamente essere adattate a diversi compiti supervisionati mediante fine-tuning. In particolare, il checkpoint adottato è stato preaddestrato su corpora italiani e mantiene la distinzione tra lettere maiuscole e minuscole durante la tokenizzazione~\cite{bertxxl}.
+
+\section{Architettura ELECTRA}
+\label{sec:electra-architecture}
+
+ELECTRA è un modello basato su un Transformer Encoder bidirezionale, che produce una rappresentazione contestuale per ciascun token. Come in BERT, ogni posizione può utilizzare le informazioni presenti sia prima sia dopo di essa nella frase. La differenza principale riguarda l'obiettivo di preaddestramento, basato sul riconoscimento dei token sostituiti~\cite{electra2020}.
+
+\subsection{Tokenizzazione}
+\label{subsec:electra-tokenization}
+
+Il checkpoint \modelid{dbmdz/electra-base-italian-xxl-cased-discriminator} utilizza una tokenizzazione WordPiece, mantenendo le parole intere oppure suddividendole in subword. La variante \emph{cased} conserva la distinzione tra lettere maiuscole e minuscole~\cite{electramodel}. La segmentazione in subword richiede di ricondurre le rappresentazioni dei token alle parole annotate nel corpus, come avviene per BERT; il metodo adottato nel progetto è descritto nella Sezione~\ref{sec:pooling}.
+
+\subsection{Struttura dell'encoder}
+\label{subsec:electra-encoder-structure}
+
+Il discriminatore italiano adotta una configurazione con 12 blocchi Transformer Encoder, 12 teste di attenzione per blocco e rappresentazioni di dimensione 768~\cite{electramodel}. Gli embedding dei token sono combinati con quelli posizionali e di segmento; ciascun blocco comprende self-attention bidirezionale, rete feed-forward, connessioni residue e normalizzazione, secondo la struttura illustrata per BERT nella Figura~\ref{fig:bert-encoder-structure}~\cite{electra2020}.
+
+L'encoder restituisce un vettore contestuale per ciascuna subword. La testa utilizzata nel preaddestramento effettua una classificazione binaria per posizione; per il PoS tagging viene sostituita da una testa supervisionata che predice le categorie UPOS. L'encoder mantiene quindi la capacità di rappresentare il contesto, mentre cambia il compito richiesto al classificatore.
+
+\subsection{Preaddestramento}
+\label{subsec:electra-pretraining}
+
+Il preaddestramento di ELECTRA, denominato \emph{replaced token detection}, impiega un generatore e un discriminatore. Il generatore apprende a ricostruire token mascherati e propone sostituzioni plausibili; il discriminatore riceve la sequenza così modificata e deve riconoscere, in ogni posizione, se il token coincide con quello originale oppure è stato sostituito. Se il generatore ricostruisce il token corretto, la posizione viene considerata originale~\cite{electra2020}.
+
+L'obiettivo del discriminatore utilizza tutte le posizioni della sequenza, anziché soltanto quelle selezionate per il mascheramento. Al termine del preaddestramento il generatore viene scartato e il discriminatore viene adattato ai compiti supervisionati. Il checkpoint impiegato nel progetto è stato preaddestrato sul corpus italiano XXL~\cite{electra2020,electramodel}.
+
+\section{Architettura Qwen}
+\label{sec:qwen-architecture}
+
+Qwen2.5 è una famiglia di modelli linguistici autoregressivi basati su Transformer Decoder. A differenza degli encoder bidirezionali, il decoder applica un vincolo causale: ogni posizione può utilizzare soltanto i token precedenti e quello corrente. Il modello costruisce così una sequenza predicendo un token alla volta~\cite{qwen2024}.
+
+\subsection{Tokenizzazione}
+\label{subsec:qwen-tokenization}
+
+Qwen2.5 utilizza una variante byte-level di Byte-Pair Encoding (BPE), che rappresenta il testo mediante unità ottenute da fusioni di sequenze di byte frequenti. Una parola può corrispondere a uno o più token, senza che tali unità coincidano necessariamente con le parole del corpus~\cite{qwen2024}. Anche la risposta contenente i tag UPOS viene tokenizzata: una singola etichetta può essere suddivisa in più token del modello.
+
+La variante Instruct rappresenta gli scambi mediante un formato di conversazione, distinguendo istruzioni di sistema, messaggio dell'utente e risposta del modello~\cite{qwenmodel}. Nel progetto l'istruzione richiede di annotare le parole numerate e di restituire soltanto una lista JSON di tag; la frase occupa il messaggio dell'utente. Il formato concreto dell'input e della risposta è descritto nella Sezione~\ref{subsec:qwen-checkpoint}.
+
+\subsection{Struttura del decoder}
+\label{subsec:qwen-decoder-structure}
+
+Il checkpoint Qwen2.5-1.5B-Instruct contiene circa 1,54 miliardi di parametri e 28 blocchi Transformer Decoder, con rappresentazioni di dimensione 1\,536. L'attenzione utilizza 12 teste query e 2 teste key/value mediante \emph{Grouped Query Attention} (GQA): più teste query condividono le stesse proiezioni key e value~\cite{qwenmodel,qwen2024}.
+
+Ogni blocco combina attenzione causale, rete feed-forward con attivazione SwiGLU, connessioni residue e normalizzazione RMSNorm. La posizione dei token viene rappresentata mediante codifiche rotatorie RoPE~\cite{qwen2024}. Il calcolo dell'attenzione segue il principio dell'Equazione~\ref{eq:scaled-dot-product-attention}, ma maschera le posizioni successive al token considerato, impedendo di utilizzare testo non ancora generato. La rappresentazione finale alimenta una proiezione sul vocabolario, dalla quale si ricava la distribuzione del token successivo.
+
+Nel PoS tagging l'intera frase viene fornita prima della risposta. Ogni tag generato può quindi dipendere da tutte le parole in ingresso e dai tag già prodotti, pur mantenendo il vincolo causale del decoder.
+
+\subsection{Preaddestramento e adattamento a istruzioni}
+\label{subsec:qwen-pretraining}
+
+Il preaddestramento di Qwen apprende a predire il token successivo su grandi quantità di testo multilingue. Le sequenze testuali forniscono direttamente i bersagli di apprendimento, consentendo al modello di acquisire regolarità linguistiche e conoscenze utilizzabili in compiti diversi~\cite{qwen2024}.
+
+La variante Instruct riceve inoltre un adattamento successivo al preaddestramento volto a seguire istruzioni e produrre risposte coerenti con il formato richiesto~\cite{qwen2024,qwenmodel}. Nel presente progetto questo checkpoint viene ulteriormente specializzato mediante fine-tuning supervisionato sulle sequenze di tag UPOS. L'adattamento QLoRA e la loss applicata alla risposta sono descritti nella Sezione~\ref{sec:qwenloss}.
+
 
 \section{Obiettivi del progetto}
 L'obiettivo è confrontare tre checkpoint preaddestrati distinti sullo stesso compito e sullo stesso corpus: due encoder con classificazione per parola e un modello che genera le etichette. La domanda riguarda la correttezza e gli errori dei sistemi ottenuti con il protocollo adottato, insieme al costo dell'adattamento e dell'inferenza.
@@ -204,21 +429,16 @@ Qwen2.5-1.5B-Instruct & \modelid{Qwen/Qwen2.5-1.5B-Instruct} & Fine-tuning super
 \end{table}
 
 \subsection{BERT XXL italiano}
-Il checkpoint BERT XXL mantiene la configurazione BERT-base: dodici blocchi Transformer, dodici teste di attenzione e vettori di dimensione 768. La sigla XXL identifica la variante preaddestrata su un corpus italiano ampliato con OSCAR, per circa 81 GB di testo secondo gli autori; non indica un encoder con molti più strati~\cite{bertxxl}. Il modello mantiene la distinzione tra maiuscole e minuscole e permette di studiare l'effetto della loro rimozione.
-
-Ogni blocco combina self-attention, rete feed-forward, connessioni residue e normalizzazione. L'attenzione calcola una combinazione delle rappresentazioni mediante
-\begin{equation}
-\operatorname{Attention}(Q,K,V)=\operatorname{softmax}\!\left(\frac{QK^{\mathsf{T}}}{\sqrt{d_k}}\right)V,
-\end{equation}
-dove query $Q$, key $K$ e value $V$ sono proiezioni apprese e $d_k$ è la dimensione delle key~\cite{vaswani2017}. La rappresentazione di una subword dipende quindi anche dalle altre posizioni non mascherate della frase.
+Il checkpoint BERT XXL adotta la configurazione BERT-Base descritta nella Sezione~\ref{sec:bert-architecture}. La sigla XXL identifica la variante preaddestrata su un corpus italiano ampliato con OSCAR, per circa 81 GB di testo secondo gli autori; non indica un encoder con molti più strati~\cite{bertxxl}. Il modello mantiene la distinzione tra maiuscole e minuscole e permette di studiare l'effetto della loro rimozione.
 
 \subsection{ELECTRA XXL italiano}
-ELECTRA introduce il preaddestramento mediante rilevamento di token sostituiti: il discriminatore deve riconoscere se ciascun token proviene dal testo originale o da un generatore~\cite{electra2020}. Nel progetto si utilizza il checkpoint italiano del discriminatore e si sostituisce la testa di preaddestramento con il classificatore UPOS~\cite{electramodel}.
+Si utilizza il checkpoint italiano del discriminatore descritto nella Sezione~\ref{sec:electra-architecture}, sostituendo la testa di preaddestramento con il classificatore UPOS~\cite{electramodel}.
 
 Il corpus italiano XXL e la forma dell'output per parola rendono ELECTRA un confronto pertinente per BERT. Tuttavia, checkpoint, ottimizzazione di preaddestramento e rappresentazioni non coincidono: gli scarti finali non isolano causalmente il solo obiettivo di preaddestramento. Nel fine-tuning si mantiene la stessa strategia di pooling e la stessa forma della testa per ridurre differenze introdotte dal codice del task.
 
 \subsection{Qwen2.5-1.5B-Instruct}
-Qwen2.5-1.5B-Instruct è un modello causale da 1,54 miliardi di parametri. La model card dichiara supporto multilingue, compreso l'italiano, e adattamento a istruzioni e output strutturati~\cite{qwenmodel}. Queste caratteristiche motivano l'impiego di una risposta JSON, ma non garantiscono la correttezza del tagging: formato e categorie vengono verificati separatamente.
+\label{subsec:qwen-checkpoint}
+Per il modello generativo si adotta la variante Instruct descritta nella Sezione~\ref{sec:qwen-architecture}. La model card dichiara supporto multilingue, compreso l'italiano, e adattamento a istruzioni e output strutturati~\cite{qwenmodel}. Queste caratteristiche motivano l'impiego di una risposta JSON, ma non garantiscono la correttezza del tagging: formato e categorie vengono verificati separatamente.
 
 L'input elenca le parole gold con un indice progressivo e richiede solo la lista dei tag, evitando di far rigenerare le parole. Ad esempio, per «Il gatto dorme» si forniscono \texttt{1: Il}, \texttt{2: gatto}, \texttt{3: dorme} e si richiede la risposta \texttt{["DET", "NOUN", "VERB"]}. Questo esempio illustra il formato; il training utilizza le annotazioni reali del corpus.
 
