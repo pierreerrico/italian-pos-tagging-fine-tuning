@@ -40,7 +40,7 @@
 \centering\fontsize{36bp}{43bp}\selectfont\bfseries PoS tagging italiano\\BERT, ELECTRA e GePpeTto
 \end{textblock*}
 \begin{textblock*}{643bp}(43bp,241bp)
-\centering\fontsize{22bp}{27bp}\selectfont Fine-tuning e ablation\\dell'informazione sulle maiuscole
+\centering\fontsize{22bp}{27bp}\selectfont Ablation delle maiuscole\\ed estensione FEATS
 \end{textblock*}
 \begin{textblock*}{643bp}(43bp,329bp)
 \centering\fontsize{25bp}{30bp}\selectfont Pierre Errico
@@ -53,7 +53,7 @@
 \begin{frame}[plain]
 \slidetitle{Task e dati}
 \begin{slidebody}
-Il \textbf{PoS tagging} assegna a ogni parola una categoria grammaticale nel contesto della frase. Il progetto predice i \textbf{17 tag UPOS} di Universal Dependencies.
+Il \textbf{PoS tagging} assegna a ogni parola una categoria grammaticale. Il progetto predice i \textbf{17 tag UPOS} e, nella seconda fase, gli attributi morfologici \textbf{FEATS}.
 
 \smallbody
 \begin{tabularx}{\linewidth}{@{}lrrY@{}}
@@ -86,7 +86,7 @@ L'\textbf{accuracy} misura la frazione di parole con tag corretto. Per ogni cate
 \]
 La \textbf{macro-F1} è la media degli F1 per categoria, con uguale peso a ogni classe. Un denominatore nullo produce punteggio zero.
 \begin{slideitems}
-\item \textbf{Totale:} inventario fisso dei 17 tag. È anche il criterio di selezione sul development.
+\item \textbf{Totale:} inventario fisso dei 17 tag. Seleziona il checkpoint della prima fase sul development.
 \item \textbf{Classi presenti:} solo categorie con supporto gold positivo nello split. Nel test sono 15, senza \texttt{INTJ} e \texttt{PART}.
 \end{slideitems}
 L'accuracy descrive la correttezza globale. La macro-F1 rende visibili anche le difficoltà sulle classi rare.
@@ -144,10 +144,42 @@ Ogni parola ha \textbf{un solo tag gold} fra 17 categorie. La testa lineare prod
 \begin{slideitems}
 \item \textbf{Cross-entropy:} massimizza la probabilità del tag corretto ed è differenziabile rispetto a testa e backbone.
 \item \textbf{Media sulle parole valide:} ogni parola ha lo stesso peso, anche quando il tokenizer produce molti frammenti.
-\item \textbf{Obiettivo unico:} il piano principale predice UPOS. Non introduce loss morfologiche o pesi multitask.
+\item \textbf{Prima fase:} ottimizzazione del solo UPOS; la seconda aggiunge le teste morfologiche.
 \end{slideitems}
 \end{slidebody}
 \source{Stesso obiettivo supervisionato per tutti i modelli. Classi non pesate nella configurazione iniziale.}
+\end{frame}
+
+\begin{frame}[plain]
+\slidetitle{Estensione UPOS + FEATS}
+\begin{slidebody}[88]
+Sul \textbf{solo testo originale}, le rappresentazioni per parola alimentano anche \textbf{14 teste FEATS}, con valori di training e \texttt{<NONE>} per l'attributo assente.
+\[
+\mathcal L_{\mathrm{joint}}=\mathcal L_{\mathrm{UPOS}}
++\frac{1}{14}\sum_{a=1}^{14}\mathcal L_a.
+\]
+\begin{slideitems}
+\item \textbf{Punto di partenza:} best UPOS originale dello stesso modello e seed; nuove teste FEATS.
+\item \textbf{Altre dieci epoche:} nuovo AdamW e scheduler, backbone e tutte le teste addestrabili.
+\item \textbf{Selezione congiunta:} media tra macro-F1 UPOS totale e macro-F1 FEATS presenti sul development.
+\end{slideitems}
+\end{slidebody}
+\source{Mean pooling condiviso. Ogni loss è mediata sulle parole valide; peso morfologico complessivo pari a uno.}
+\end{frame}
+
+\begin{frame}[plain]
+\slidetitle{Metriche morfologiche}
+\begin{slidebody}[88]
+Le annotazioni FEATS sono insiemi di coppie, per esempio \texttt{Gender=Fem|Number=Sing}.
+\begin{slideitems}
+\item \textbf{Accuracy esatta:} l'intero insieme predetto deve coincidere con il gold, anche quando è vuoto.
+\item \textbf{Macro-F1 delle coppie:} valuta ciascun attributo-valore, escludendo \texttt{<NONE>}; inventario totale o sole coppie presenti.
+\item \textbf{Accuracy congiunta:} richiede UPOS e insieme FEATS entrambi corretti sulla parola.
+\end{slideitems}
+\smallbody
+L'accuracy per attributo comprende anche le assenze. Le coppie gold sconosciute al modello, come \texttt{Typo=Yes}, restano nella valutazione.
+\end{slidebody}
+\source{Inventari costruiti sul training. Metriche per coppia e per attributo conservate insieme alle predizioni.}
 \end{frame}
 
 \begin{frame}[plain]
@@ -189,9 +221,9 @@ La testa di token classification mantiene il vincolo causale di GPT-2. Le differ
 \begin{frame}[plain]
 \slidetitle{Fine-tuning completo}
 \begin{slidebody}
-Tutti i modelli aggiornano \textbf{il backbone e la testa di classificazione}, con una sola etichetta UPOS per parola.
+Tutti i modelli aggiornano \textbf{il backbone e le teste attive}: UPOS nella prima fase, UPOS e FEATS nella seconda.
 \begin{slideitems}
-\item \textbf{Nuove componenti:} testa di classificazione a diciassette categorie per ciascun modello.
+\item \textbf{Nuove componenti:} testa UPOS nella prima fase; quattordici teste morfologiche nella seconda.
 \item \textbf{Inizializzazione riproducibile:} il seed viene impostato prima di creare i nuovi parametri.
 \item \textbf{Precisione:} pesi in FP32 e autocast BF16, con gli stessi iperparametri di ottimizzazione.
 \end{slideitems}
@@ -209,7 +241,7 @@ La macchina di riferimento dispone di una RTX 4070 SUPER da 12 GB. Copertura e m
 \toprule
 \textbf{Impostazione} & \textbf{BERT / ELECTRA} & \textbf{GePpeTto}\\
 \midrule
-Epoche & 10 & 10\\[7bp]
+Epoche per fase & 10 & 10\\[7bp]
 Learning rate & $2\cdot10^{-5}$ & $2\cdot10^{-5}$\\[7bp]
 Batch train/eval & 8 / 16 & 8 / 16\\[7bp]
 Lunghezza limite & 512 subword & 512 subword\\[7bp]
@@ -219,7 +251,7 @@ Aggiornamento & Tutti i parametri & Tutti i parametri\\
 
 \begin{slideitems}
 \item \textbf{AdamW e seed:} 42, 123, 456 per tutti i modelli; un aggiornamento per batch.
-\item \textbf{Checkpoint:} migliore macro-F1 totale sul development, valutata a ogni epoca.
+\item \textbf{Checkpoint:} macro-F1 UPOS nella prima fase; criterio congiunto nella seconda, a ogni epoca.
 \item \textbf{Copertura:} allineamento e assenza di troncature verificati prima del training. Test per la valutazione finale.
 \end{slideitems}
 \end{slidebody}
@@ -229,7 +261,7 @@ Aggiornamento & Tutti i parametri & Tutti i parametri\\
 \begin{frame}[plain]
 \slidetitle{Ablation delle maiuscole}
 \begin{slidebody}
-Lo studio rimuove \textbf{la stessa informazione dall'input} di tutti i modelli: la distinzione fra maiuscole e minuscole.
+Nella \textbf{sola fase UPOS}, si rimuove la distinzione fra maiuscole e minuscole. Lo studio FEATS separato usa soltanto testo originale.
 
 \smallbody
 \begin{tabularx}{\linewidth}{@{}L{150bp}YY@{}}
@@ -265,15 +297,15 @@ GePpeTto & 3 seed & 3 seed\\
 \end{tabularx}
 
 \begin{center}
-\fontsize{28bp}{34bp}\selectfont\textbf{18 training: 12 encoder e 6 GePpeTto}
+\fontsize{27bp}{33bp}\selectfont\textbf{18 UPOS + 9 UPOS/FEATS = 27 run}
 \end{center}
 
 \begin{slideitems}
-\item \textbf{Scarto appaiato per seed:} punteggio con input minuscolo meno punteggio originale.
-\item \textbf{Media e deviazione standard campionaria} delle metriche e degli scarti per tutti i modelli.
+\item \textbf{Maiuscole:} 18 run UPOS della tabella, con scarto minuscolo meno originale appaiato per seed.
+\item \textbf{FEATS, studio separato:} 9 nuovi run, solo originale; confronto con il corrispondente UPOS.
 \end{slideitems}
 \end{slidebody}
-\source{La CRF resta un approfondimento opzionale. Non compare nei run del piano principale.}
+\source{Due ablation separate. Media e deviazione standard su tre seed; nessun training FEATS in minuscolo.}
 \end{frame}
 
 \begin{frame}[plain]
@@ -283,7 +315,7 @@ Ogni sistema viene valutato sulle \textbf{stesse parole}, con accuracy, macro-F1
 \begin{slideitems}
 \item \textbf{Per categoria:} precision, recall, F1 e supporto, per leggere le differenze sulle classi rare.
 \item \textbf{Confusioni ed esempi contestuali:} nomi comuni e propri, ambiguità verbali e parole poco frequenti.
-\item \textbf{Allineamento comune:} una predizione tra diciassette categorie per ogni parola gold; padding escluso dalle metriche.
+\item \textbf{Allineamento comune:} una decisione UPOS e, nella seconda fase, un valore per attributo; padding escluso.
 \end{slideitems}
 \smallbody
 Le predizioni sono associate alle parole del corpus. Ogni errore contribuisce alle metriche della propria categoria.
@@ -292,16 +324,40 @@ Le predizioni sono associate alle parole del corpus. Ogni errore contribuisce al
 \end{frame}
 
 \begin{frame}[plain]
+\slidetitle{Risultati UPOS sul test}
+\begin{slidebody}[88]
+\fontsize{18bp}{21.6bp}\selectfont
+\begin{tabularx}{\linewidth}{@{}L{125bp}L{85bp}YYY@{}}
+\toprule
+\textbf{Modello} & \textbf{Input} & \textbf{Accuracy} & \shortstack[l]{\textbf{Macro-F1}\\\textbf{totale}} & \shortstack[l]{\textbf{Macro-F1}\\\textbf{presenti}}\\
+\midrule
+BERT XXL & Originale & $98{,}86\pm0{,}10$ & $84{,}95\pm0{,}43$ & $96{,}28\pm0{,}49$\\[7bp]
+BERT XXL & Minuscolo & $98{,}43\pm0{,}10$ & $83{,}47\pm1{,}61$ & $94{,}60\pm1{,}83$\\[7bp]
+ELECTRA XXL & Originale & $98{,}90\pm0{,}10$ & $84{,}74\pm0{,}03$ & $96{,}04\pm0{,}03$\\[7bp]
+ELECTRA XXL & Minuscolo & $98{,}67\pm0{,}03$ & $83{,}73\pm0{,}55$ & $94{,}89\pm0{,}63$\\[7bp]
+GePpeTto & Originale & $97{,}57\pm0{,}17$ & $82{,}65\pm0{,}66$ & $93{,}67\pm0{,}74$\\[7bp]
+GePpeTto & Minuscolo & $97{,}04\pm0{,}44$ & $81{,}04\pm1{,}92$ & $91{,}85\pm2{,}17$\\
+\bottomrule
+\end{tabularx}
+
+Media $\pm$ deviazione standard campionaria sui tre seed, in percentuale. I diciotto run completano dieci epoche ciascuno.
+
+\texttt{INTJ} e \texttt{PART} sono assenti dal test: macro-F1 totale $=15/17$ della media sulle classi presenti.
+\end{slidebody}
+\source{Test ISDT 2.15: 10.417 parole gold. Predizioni, metriche, aggregati e selezione verificati sui diciotto run.}
+\end{frame}
+
+\begin{frame}[plain]
 \slidetitle{Risultati e limiti del confronto}
 \begin{slidebody}
-\textbf{Il confronto finale è in corso.} I punteggi del progetto NLP descrivono checkpoint e allineamento diversi e non sono risultati di questi esperimenti.
+\textbf{UPOS è completato; FEATS richiede i nuovi training.} I risultati delle due fasi restano separati.
 \begin{slideitems}
-\item \textbf{Confronto da produrre:} prestazioni UPOS, variazione dovuta alle maiuscole, errori e costo computazionale misurato.
-\item \textbf{Interpretazione:} cambiano pretraining, tokenizer e architettura. Le impostazioni comuni non isolano causalmente una singola differenza.
-\item \textbf{Ambito:} un corpus italiano, segmentazione gold e tre seed. Tutti i modelli usano dieci epoche e fine-tuning completo.
+\item \textbf{Metriche diverse:} ELECTRA ha la maggiore accuracy media sul testo originale; BERT la maggiore macro-F1.
+\item \textbf{Minuscolo:} tutte le medie diminuiscono. L'effetto varia tra seed: la macro-F1 di GePpeTto cresce nel seed 42.
+\item \textbf{Interpretazione prudente:} tre seed e un solo corpus; nessuna superiorità generale o significatività dimostrata.
 \end{slideitems}
 \smallbody
-La CRF e l'estensione FEATS restano possibili sviluppi successivi al confronto principale.
+Gli scarti UPOS tra fasi includono anche training aggiuntivo e diversa selezione; non isolano il contributo causale di FEATS.
 \end{slidebody}
 \end{frame}
 
