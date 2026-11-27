@@ -48,7 +48,7 @@ Il progetto confronta BERT XXL italiano, ELECTRA XXL italiano e GePpeTto nel com
 
 Il progetto comprende due ablation separate. La prima confronta testo originale e minuscolo sul solo UPOS, con riaddestramento delle configurazioni e mantenimento delle annotazioni. La seconda confronta UPOS e UPOS + FEATS sul solo testo originale, con training indipendenti dallo stesso checkpoint preaddestrato e quattordici teste morfologiche aggiuntive nella configurazione congiunta. Tutti i run mantengono mean pooling, dieci epoche di fine-tuning completo e selezione sulla macro-F1 UPOS totale; ciascuno dei tre modelli usa tre seed. La valutazione considera correttezza delle etichette, prestazioni per categoria, insiemi morfologici completi e variabilità tra esecuzioni.
 
-Il piano comprende diciotto run UPOS e nove ulteriori training congiunti, per ventisette esecuzioni complessive. La prima fase è completata: sul testo originale ELECTRA ha l'accuracy media più alta, pari al 98,90\%, mentre BERT raggiunge la macro-F1 più alta sulle classi presenti, pari al 96,28\%. Le differenze tra metriche e la variabilità tra tre seed richiedono un'interpretazione prudente. Le due fasi mantengono risultati e checkpoint separati; per FEATS non sono ancora disponibili risultati finali.
+Le ventisette esecuzioni comprendono diciotto run UPOS e nove training UPOS + FEATS sul solo testo originale. Nel confronto UPOS, ELECTRA ha l'accuracy media più alta, pari al 98,90\%, mentre BERT raggiunge la macro-F1 più alta sulle classi presenti, pari al 96,28\%. La conversione in minuscolo riduce le medie dei tre modelli, con variazioni non uniformi tra seed. Nel compito morfologico ELECTRA ottiene il 98,56\% di accuracy esatta e l'89,93\% di macro-F1 sulle coppie presenti; BERT mostra una maggiore variabilità tra esecuzioni. L'aggiunta di FEATS non migliora UPOS in modo uniforme: gli scarti medi cambiano segno tra modelli e metriche e rimangono contenuti rispetto alla variabilità osservata.
 
 \newpage
 \begingroup\small\setlength{\parskip}{0pt}\tableofcontents\endgroup
@@ -328,8 +328,6 @@ Un secondo obiettivo è studiare il contributo dell'informazione sulle maiuscole
 
 L'esperimento congiunto costituisce uno studio separato, limitato al testo originale: UPOS e UPOS + FEATS partono dallo stesso checkpoint preaddestrato, mantenendo modello, dati, seed, dieci epoche e criterio di selezione. La configurazione congiunta aggiunge quattordici teste e la supervisione morfologica. Si studiano le prestazioni FEATS e le differenze UPOS fra i due training indipendenti; non si ripete l'ablation delle maiuscole.
 
-Il progetto riutilizza dal lavoro NLP la segmentazione gold e l'analisi per categoria. I nuovi checkpoint, il pooling e l'ablation richiedono nuovi training e valutazioni. Il piano esclude l'encoder congelato; l'eventuale CRF resta uno sviluppo opzionale.
-
 \chapter{Task, dati e metriche}
 \label{chap:data-metrics}
 \section{Definizione del task}
@@ -345,7 +343,7 @@ Il corpus è UD Italian-ISDT, release 2.15~\cite{isdt}. Per il progetto AI la fo
 
 Si mantengono gli split ufficiali: training per l'aggiornamento dei parametri, development per la selezione e test per la valutazione finale. Al caricamento si controllano la corrispondenza tra parole ed etichette, l'ordine delle frasi e la provenienza. Un hash della rappresentazione canonica di ciascuno split permette di individuare modifiche ai dati; le due condizioni dell'ablation condividono la stessa sequenza di etichette gold.
 
-La distribuzione Hugging Face è stata confrontata con i file CoNLL-U ISDT 2.15 del progetto NLP: frasi, parole, etichette UPOS e ordine coincidono in tutti e tre gli split. La Tabella~\ref{tab:data} ne riporta i conteggi verificati. La cella di preparazione dei dati nel notebook controlla l'allineamento e registra hash e conteggi nel manifest generato automaticamente. L'identità dei dati consente di mantenere il benchmark, ma non rende riutilizzabili come nuovi risultati le predizioni dei precedenti checkpoint.
+La distribuzione Hugging Face è stata confrontata con i file CoNLL-U di ISDT 2.15: frasi, parole, etichette UPOS e ordine coincidono in tutti e tre gli split. La Tabella~\ref{tab:data} ne riporta i conteggi verificati. La preparazione dei dati controlla l'allineamento e registra hash e conteggi nel manifest generato automaticamente.
 
 \begin{table}[!htbp]
 \centering
@@ -520,12 +518,12 @@ Per tutti i modelli i pesi sono mantenuti in FP32 e il calcolo usa autocast BF16
 
 \chapter{Protocollo sperimentale}
 \label{chap:protocol}
-\section{Configurazioni e impostazioni iniziali}
+\section{Configurazioni e impostazioni sperimentali}
 Il confronto sulle maiuscole comprende tre modelli, due condizioni di input e tre seed (42, 123 e 456), per $3\times2\times3=18$ run UPOS. L'ablation FEATS riguarda soltanto il testo originale e aggiunge $3\times3=9$ training congiunti, per ventisette esecuzioni complessive. I nove nuovi run e le nove baseline UPOS originali partono dallo stesso checkpoint preaddestrato del rispettivo modello. Tutti i run prevedono dieci epoche di fine-tuning completo e lo stesso criterio di selezione.
 
 Ogni run salva configurazione, revisioni, versioni delle librerie e provenienza dei dati. L'esperimento UPOS mantiene \path{outputs/upos_trainer_v1/}; quello congiunto usa \path{outputs/upos_feats_trainer_v1/}, con directory distinte per modello, condizione e seed. Il selettore \texttt{TASK\_STAGE} vale \texttt{upos} per il confronto sulle maiuscole e \texttt{upos\_feats}, predefinito, per l'ablation morfologica. I due esperimenti hanno inizializzazioni indipendenti dai rispettivi modelli preaddestrati.
 
-Il notebook \path{notebooks/Italian_UPOS_AI.ipynb} estende \path{BERT_Italian_PoS_UD_2_15.ipynb} del progetto NLP, conservandone struttura e logica di esecuzione. Le sezioni seguono lo stesso ordine: ambiente, configurazione, dati, tokenizzazione, metriche, modelli, training, valutazione, confronto e analisi degli errori. L'esecuzione della cella di training avvia direttamente i sistemi e i seed configurati e riutilizza i training già completati. Il ciclo di ottimizzazione utilizza Hugging Face \texttt{Trainer}, con barre di avanzamento, valutazione periodica e salvataggio dei checkpoint.
+Il notebook \path{notebooks/Italian_UPOS_AI.ipynb} organizza la preparazione dei dati, l'allineamento, il training e la valutazione. La cella di training avvia i sistemi e i seed configurati e riutilizza i run già completati e compatibili. Il ciclo di ottimizzazione utilizza Hugging Face \texttt{Trainer}, con valutazione periodica e salvataggio dei checkpoint.
 
 \begin{table}[!htbp]
 \centering\small
@@ -543,7 +541,7 @@ Adattamento & Parametri completi & Parametri completi\\
 Seed & \multicolumn{2}{c}{42, 123, 456}\\
 \bottomrule
 \end{tabularx}
-\caption{Configurazione iniziale con limite comune di 512 subword e controlli di copertura del corpus. Gli iperparametri di ottimizzazione costituiscono un punto di partenza e non valori ottimali individuati sperimentalmente.}
+\caption{Configurazione utilizzata, con limite comune di 512 subword e controlli di copertura del corpus. Gli iperparametri di ottimizzazione sono condivisi tra modelli e non derivano da una ricerca sistematica dei valori ottimali.}
 \label{tab:training}
 \end{table}
 
@@ -551,7 +549,7 @@ L'ottimizzazione utilizza AdamW, che separa la penalizzazione dei pesi dall'aggi
 
 Le impostazioni di ottimizzazione, il limite di input e il pooling sono comuni ai tre modelli. Le due condizioni di input riguardano la fase UPOS; la fase FEATS mantiene soltanto il testo originale. Ogni fase condivide anche le proprie teste supervisionate e la funzione obiettivo. Differiscono l'architettura, il tokenizer e il contesto disponibile agli stati: bidirezionale in BERT ed ELECTRA, causale in GePpeTto. I medesimi iperparametri non rendono identici il numero di parametri, il numero di token elaborati o il costo computazionale.
 
-Le impostazioni potranno essere riviste sul development prima della campagna definitiva. Una modifica comporta una nuova configurazione identificabile e non sovrascrive i risultati già prodotti. Il test non guida learning rate, numero di epoche o scelta della strategia di pooling.
+Le impostazioni sono fissate nella configurazione degli esperimenti. Eventuali modifiche richiedono una nuova configurazione identificabile, senza sovrascrivere i risultati prodotti. Il test non guida learning rate, numero di epoche o scelta della strategia di pooling.
 
 \section{Selezione del checkpoint e inferenza}
 \label{sec:selection}
@@ -564,6 +562,16 @@ Il checkpoint migliore viene ricaricato al termine di ciascun training. Le metri
 Per tutti i modelli si calcolano gli score delle diciassette classi UPOS su ogni parola e si seleziona il tag con score massimo. Nella seconda fase ogni testa FEATS sceglie analogamente il proprio valore; le predizioni \texttt{<NONE>} non compaiono nel dizionario morfologico ricostruito. L'allineamento conserva una decisione per ogni parola gold; il padding viene escluso dalle metriche. Le annotazioni gold servono al calcolo dei punteggi e non entrano nell'input del modello.
 
 Dopo il completamento dei training, la sezione di valutazione ricarica i modelli selezionati e applica il metodo \texttt{predict} del \texttt{Trainer} al test, una volta per ciascun run. Il test non viene usato per scegliere tra epoche dello stesso training. Metriche e predizioni vengono conservate nei file del run, così le sezioni successive possono ricalcolare confronto e analisi degli errori senza ripetere l'inferenza.
+
+La Figura~\ref{fig:training-dynamics} affianca l'andamento dell'ottimizzazione e la metrica utilizzata per la selezione nei training sul testo originale. Le loss di UPOS e UPOS + FEATS hanno obiettivi diversi; il loro confronto numerico non costituisce una graduatoria delle prestazioni. La macro-F1 UPOS sul development fornisce invece il criterio comune.
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\textwidth]{figures/training_dynamics.pdf}
+\caption{Andamento dei training sul testo originale per i tre modelli. In alto, loss di training e development per UPOS e UPOS + FEATS, con asse verticale logaritmico; in basso, macro-F1 UPOS totale sul development. Le linee indicano le medie sui tre seed e le aree una deviazione standard campionaria.}
+\label{fig:training-dynamics}
+\end{figure}
+\FloatBarrier
 
 \section{Ablation dell'informazione sulle maiuscole}
 \label{sec:ablation}
@@ -595,18 +603,23 @@ Si aggregano le confusioni UPOS con supporti ed esempi contestuali, distinguendo
 
 Si conservano gold e predizioni FEATS per parola; le metriche sono in \path{per_feature_metrics.csv} e \path{per_attribute_metrics.csv}. Il confronto UPOS tra fasi riguarda soltanto il testo originale.
 
-Si registrano tempi di training e inferenza, parametri aggiornati e memoria GPU, specificando hardware, batch, precisione e inclusione di valutazioni e salvataggi.
+Si registrano i tempi di training e inferenza e il numero di parametri aggiornati, specificando hardware, batch, precisione e inclusione di valutazioni e salvataggi.
 
-\chapter{Risultati e limiti del confronto}
+\chapter{Risultati}
 \label{chap:results}
-\section{Stato degli esperimenti}
-I diciotto run della fase UPOS sono completati. Le predizioni sul test, le metriche ricalcolate, gli aggregati, gli errori e la selezione dei checkpoint sono stati verificati senza discrepanze. Tutti i run hanno completato dieci epoche con valutazione sul development a ogni epoca. L'estensione congiunta sul solo testo originale richiede invece nove nuovi training: non sono ancora disponibili metriche morfologiche finali o variazioni UPOS dopo l'estensione.
+I risultati comprendono tutte le ventisette esecuzioni: diciotto per il confronto UPOS con testo originale e minuscolo e nove per UPOS + FEATS sul solo testo originale. Il test contiene le stesse 10\,417 parole gold per tutti i sistemi. Le tabelle riportano media e deviazione standard campionaria sui seed 42, 123 e 456; i grafici affiancano il confronto tra modelli alle variazioni appaiate dei due studi.
 
-I controlli di preparazione verificano allineamento e copertura delle parole prima del training; non misurano la qualità linguistica dei checkpoint fine-tunati. I risultati del progetto NLP precedente riguardano un diverso modello di partenza e una diversa aggregazione e non popolano le tabelle del nuovo confronto.
-
-\section{Risultati della fase UPOS}
+\section{Confronto UPOS tra i modelli}
 \label{sec:upos-results}
-La Tabella~\ref{tab:upos-results} riporta i risultati sul test delle sei configurazioni, come media e deviazione standard campionaria sui seed 42, 123 e 456. Ogni run viene valutato con il checkpoint selezionato sul development, mantenendo le stesse 10\,417 parole gold.
+Sul testo originale ELECTRA raggiunge l'accuracy media del 98,90\%, seguita da BERT con il 98,86\% e GePpeTto con il 97,57\%. La macro-F1 sulle classi presenti favorisce invece BERT, con il 96,28\%, rispetto al 96,04\% di ELECTRA e al 93,67\% di GePpeTto. La Figura~\ref{fig:upos-comparison} mostra questo confronto; la Tabella~\ref{tab:upos-results} riporta anche le configurazioni in minuscolo.
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\textwidth]{figures/upos_comparison.pdf}
+\caption{Accuracy e macro-F1 UPOS sulle classi presenti con testo originale. I valori riassumono tre seed per modello, con media e deviazione standard campionaria. Le metriche sono percentuali e gli assi verticali sono troncati per evidenziare gli scarti.}
+\label{fig:upos-comparison}
+\end{figure}
+\FloatBarrier
 
 \begin{table}[!htbp]
 \centering\small
@@ -614,12 +627,12 @@ La Tabella~\ref{tab:upos-results} riporta i risultati sul test delle sei configu
 \toprule
 Modello & Input & Accuracy & Macro-F1 totale & Macro-F1 presenti\\
 \midrule
-BERT XXL & Originale & $98{,}864\pm0{,}096$ & $84{,}953\pm0{,}432$ & $96{,}280\pm0{,}489$\\
-BERT XXL & Minuscolo & $98{,}429\pm0{,}096$ & $83{,}469\pm1{,}613$ & $94{,}598\pm1{,}829$\\
-ELECTRA XXL & Originale & $98{,}899\pm0{,}100$ & $84{,}743\pm0{,}026$ & $96{,}042\pm0{,}029$\\
-ELECTRA XXL & Minuscolo & $98{,}666\pm0{,}033$ & $83{,}727\pm0{,}554$ & $94{,}890\pm0{,}628$\\
-GePpeTto & Originale & $97{,}571\pm0{,}167$ & $82{,}653\pm0{,}656$ & $93{,}674\pm0{,}743$\\
-GePpeTto & Minuscolo & $97{,}040\pm0{,}439$ & $81{,}041\pm1{,}917$ & $91{,}847\pm2{,}173$\\
+BERT XXL & Originale & $98{,}86\pm0{,}10$ & $84{,}95\pm0{,}43$ & $96{,}28\pm0{,}49$\\
+BERT XXL & Minuscolo & $98{,}43\pm0{,}10$ & $83{,}47\pm1{,}61$ & $94{,}60\pm1{,}83$\\
+ELECTRA XXL & Originale & $98{,}90\pm0{,}10$ & $84{,}74\pm0{,}03$ & $96{,}04\pm0{,}03$\\
+ELECTRA XXL & Minuscolo & $98{,}67\pm0{,}03$ & $83{,}73\pm0{,}55$ & $94{,}89\pm0{,}63$\\
+GePpeTto & Originale & $97{,}57\pm0{,}17$ & $82{,}65\pm0{,}66$ & $93{,}67\pm0{,}74$\\
+GePpeTto & Minuscolo & $97{,}04\pm0{,}44$ & $81{,}04\pm1{,}92$ & $91{,}85\pm2{,}17$\\
 \bottomrule
 \end{tabular}
 \caption{Test UPOS: media $\pm$ deviazione standard campionaria su tre seed, in percentuale. La macro-F1 totale usa diciassette categorie, quella sulle classi presenti quindici.}
@@ -630,23 +643,177 @@ Il test non contiene occorrenze gold di \texttt{INTJ} e \texttt{PART}. Con le co
 
 Sul testo originale ELECTRA supera BERT di circa 0,035 punti percentuali di accuracy media, mentre BERT ha una macro-F1 totale maggiore di circa 0,210 punti. GePpeTto ottiene medie inferiori a quelle dei due encoder nelle metriche riportate. Queste osservazioni riguardano i sistemi su questo test: non individuano un vincitore assoluto e non costituiscono una dimostrazione di significatività statistica. Le differenze di contesto, tokenizzazione e preaddestramento rimangono congiuntamente presenti nel confronto.
 
-Le medie sul testo minuscolo diminuiscono per tutti i modelli e tutte le metriche della tabella. Per l'accuracy, le variazioni minuscolo meno originale sono circa $-0{,}435$, $-0{,}234$ e $-0{,}531$ punti percentuali rispettivamente per BERT, ELECTRA e GePpeTto. L'andamento non è uniforme tra seed: per GePpeTto con seed 42 la macro-F1 totale aumenta di circa 0,536 punti, nonostante la variazione media negativa.
+\subsection{Ablation delle maiuscole}
+Le medie sul testo minuscolo diminuiscono per tutti i modelli e tutte le metriche della Tabella~\ref{tab:upos-results}. Per l'accuracy, le variazioni minuscolo meno originale sono circa $-0{,}435$, $-0{,}234$ e $-0{,}531$ punti percentuali rispettivamente per BERT, ELECTRA e GePpeTto. La Figura~\ref{fig:upos-casing-ablation} riassume gli scarti appaiati con media e deviazione standard: l'andamento non è uniforme, come mostra GePpeTto con seed 42, la cui macro-F1 totale aumenta di circa 0,536 punti nonostante la variazione media negativa.
 
-La selezione può privilegiare un'epoca iniziale anche dopo dieci epoche complete. Per GePpeTto minuscolo con seed 456 il checkpoint scelto corrisponde alla prima epoca, secondo la macro-F1 sul development; le altre nove epoche sono state regolarmente eseguite e valutate. Il checkpoint iniziale selezionato non equivale quindi a un training abbreviato.
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\textwidth]{figures/upos_casing_ablation.pdf}
+\caption{Ablation delle maiuscole sul solo UPOS. Gli scarti sono calcolati come minuscolo meno originale, in punti percentuali, appaiando modello e seed. Si riportano media e deviazione standard campionaria delle tre differenze per ciascun modello.}
+\label{fig:upos-casing-ablation}
+\end{figure}
+\FloatBarrier
 
-\section{Presentazione dei risultati finali}
-La raccolta finale deve contenere una riga per fase, modello, condizione e seed, con accuracy, macro-F1 totale e macro-F1 sulle classi presenti per UPOS. La seconda fase aggiunge accuracy esatta FEATS, accuracy per attributo, macro-F1 delle coppie e accuracy congiunta. I riepiloghi presentano medie e deviazioni standard, conservando le misure individuali per verificare se gli scarti siano uniformi tra seed.
+La selezione sul development può privilegiare un'epoca iniziale: per GePpeTto minuscolo con seed 456 viene scelto il checkpoint della prima epoca, pur avendo completato e valutato tutte le dieci epoche previste.
 
-L'ablation richiede una tabella di differenze appaiate e un'analisi delle categorie maggiormente interessate. Un calo della sola macro-F1 può dipendere da poche occorrenze di una classe rara; per interpretarlo si riportano supporti e conteggi di errore. Un vantaggio medio contenuto non prova una superiorità generale se varia tra esecuzioni o dipende da pochi esempi.
+\section{Predizione delle caratteristiche FEATS}
+\label{sec:feats-results}
+ELECTRA raggiunge l'accuracy esatta FEATS del $98{,}56\pm0{,}04\%$ e la macro-F1 sulle coppie presenti dell'$89{,}93\pm0{,}09\%$. La Figura~\ref{fig:feats-comparison} affianca queste misure all'accuracy congiunta, che richiede UPOS e l'intero insieme morfologico entrambi corretti. La Tabella~\ref{tab:feats-results} completa il confronto con la macro-F1 totale.
 
-Le curve di training e development potranno mostrare evoluzione della cross-entropy per parola e della macro-F1, con il checkpoint selezionato indicato esplicitamente. La lettura congiunta permette di osservare se la riduzione della loss accompagni un miglioramento distribuito tra le categorie oppure soprattutto sulle classi frequenti.
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\textwidth]{figures/feats_comparison.pdf}
+\caption{Risultati UPOS + FEATS sul testo originale: accuracy esatta FEATS, macro-F1 sulle coppie presenti e accuracy congiunta UPOS/FEATS. I valori sono percentuali, riassunti con media e deviazione standard campionaria sui tre seed. Gli assi verticali sono troncati.}
+\label{fig:feats-comparison}
+\end{figure}
+\FloatBarrier
+
+\begin{table}[!htbp]
+\centering\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lcccc}
+\toprule
+Modello & \shortstack{Accuracy\\FEATS} & \shortstack{Macro-F1\\presenti} & \shortstack{Macro-F1\\totale} & \shortstack{Accuracy\\congiunta}\\
+\midrule
+BERT XXL & $97{,}98\pm0{,}80$ & $85{,}65\pm7{,}42$ & $79{,}38\pm6{,}88$ & $97{,}48\pm0{,}89$\\
+ELECTRA XXL & $98{,}56\pm0{,}04$ & $89{,}93\pm0{,}09$ & $83{,}35\pm0{,}09$ & $98{,}09\pm0{,}03$\\
+GePpeTto & $97{,}64\pm0{,}12$ & $88{,}16\pm0{,}91$ & $81{,}71\pm0{,}85$ & $96{,}43\pm0{,}16$\\
+\bottomrule
+\end{tabular}
+\caption{Metriche morfologiche sul test, espresse come media $\pm$ deviazione standard campionaria su tre seed, in percentuale. La macro-F1 totale comprende 41 coppie attributo-valore, quella sulle classi presenti 38; entrambe escludono \texttt{<NONE>}.}
+\label{tab:feats-results}
+\end{table}
+
+La lettura del confronto cambia con la metrica. BERT ha un'accuracy esatta media leggermente maggiore di GePpeTto, ma una macro-F1 media minore e più variabile. La macro-F1 di BERT sulle coppie presenti è pari al 77,08\% con seed 42, al 90,12\% con seed 123 e all'89,75\% con seed 456. Il risultato medio dell'$85{,}65\pm7{,}42\%$ riflette questa dispersione; non indica una difficoltà uniforme nelle tre esecuzioni.
+
+Il checkpoint BERT con seed 42 viene selezionato all'epoca 2, mentre gli altri due alle epoche 5 e 4. Il criterio comune dipende dalla macro-F1 UPOS sul development e non ottimizza direttamente il punteggio FEATS: le misure morfologiche descrivono quindi il modello scelto per il compito principale. Tutte le esecuzioni hanno comunque completato le dieci epoche previste.
+
+Il compromesso è visibile anche sul development del seed 42: la macro-F1 FEATS totale è del 73,61\% all'epoca selezionata e raggiunge il massimo dell'87,68\% all'epoca 9, che non viene scelta dal criterio UPOS. Questo confronto riguarda il development e non dimostra quale sarebbe stata la prestazione sul test di un checkpoint diverso. I risultati riportati mantengono il criterio fissato per tutte le esecuzioni.
+
+L'accuracy sulle singole decisioni parola-attributo raggiunge il $99{,}81\pm0{,}06\%$ per BERT, il $99{,}86\pm0{,}01\%$ per ELECTRA e il $99{,}74\pm0{,}01\%$ per GePpeTto. Questa misura comprende molte assenze corrette, rappresentate da \texttt{<NONE>}; anche l'accuracy esatta include le 4\,055 parole con insieme gold vuoto. La macro-F1 delle coppie presenti, che esclude tali assenze dalla media, rende più visibili le difficoltà sulle caratteristiche effettivamente annotate.
+
+\section{Effetto della supervisione FEATS su UPOS}
+\label{sec:feats-upos-ablation}
+La Tabella~\ref{tab:joint-upos-results} riporta UPOS nei nove training congiunti sul testo originale. Il confronto con le baseline originali della Tabella~\ref{tab:upos-results} mantiene comuni modello preaddestrato, inizializzazione UPOS, dati, seed, budget e criterio di selezione. Cambiano l'aggiunta delle teste morfologiche e la loss dell'Equazione~\ref{eq:joint-feats-loss}.
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{lccc}
+\toprule
+Modello & Accuracy & Macro-F1 totale & Macro-F1 presenti\\
+\midrule
+BERT XXL & $98{,}77\pm0{,}16$ & $84{,}77\pm0{,}98$ & $96{,}07\pm1{,}11$\\
+ELECTRA XXL & $98{,}87\pm0{,}05$ & $84{,}83\pm0{,}34$ & $96{,}14\pm0{,}38$\\
+GePpeTto & $97{,}67\pm0{,}07$ & $82{,}98\pm0{,}41$ & $94{,}05\pm0{,}47$\\
+\bottomrule
+\end{tabular}
+\caption{UPOS nei training UPOS + FEATS sul testo originale: media $\pm$ deviazione standard campionaria sui tre seed, in percentuale. Inventari e convenzioni sono gli stessi del confronto sul solo UPOS.}
+\label{tab:joint-upos-results}
+\end{table}
+
+Gli scarti appaiati sono riassunti nella Figura~\ref{fig:upos-feats-ablation} e nella Tabella~\ref{tab:feats-upos-deltas}. L'accuracy media diminuisce di circa 0,096 punti per BERT e 0,029 per ELECTRA, mentre aumenta di 0,099 per GePpeTto. La macro-F1 sulle classi presenti diminuisce per BERT e cresce in media per gli altri due modelli. L'estensione non produce quindi un miglioramento uniforme del compito principale.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{figures/upos_feats_ablation.pdf}
+\caption{Ablation della supervisione morfologica su UPOS, limitata al testo originale. Gli scarti sono UPOS + FEATS meno UPOS, in punti percentuali, appaiando modello e seed. Si riportano media e deviazione standard campionaria delle tre differenze.}
+\label{fig:upos-feats-ablation}
+\end{figure}
+\FloatBarrier
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{lcc}
+\toprule
+Modello & $\Delta$ accuracy & $\Delta$ macro-F1 presenti\\
+\midrule
+BERT XXL & $-0{,}096\pm0{,}092$ & $-0{,}209\pm0{,}692$\\
+ELECTRA XXL & $-0{,}029\pm0{,}088$ & $+0{,}097\pm0{,}379$\\
+GePpeTto & $+0{,}099\pm0{,}106$ & $+0{,}372\pm0{,}950$\\
+\bottomrule
+\end{tabular}
+\caption{Variazioni UPOS appaiate tra supervisione congiunta e solo UPOS sul testo originale, in punti percentuali: media $\pm$ deviazione standard campionaria su tre seed.}
+\label{tab:feats-upos-deltas}
+\end{table}
+
+La dispersione degli scarti della macro-F1 è maggiore delle rispettive medie. Per esempio, GePpeTto migliora la macro-F1 sulle classi presenti con seed 42 e 123 ma la riduce con seed 456; BERT la aumenta soltanto con seed 123. I risultati descrivono l'effetto nelle esecuzioni svolte, senza dimostrare un beneficio generale della supervisione morfologica.
+
+\section{Analisi degli errori}
+\label{sec:results-errors}
+La Figura~\ref{fig:feats-attribute-f1} riassume l'F1 delle coppie presenti per attributo, accompagnato dal supporto. Questa aggregazione esclude \texttt{<NONE>} e permette di confrontare le caratteristiche effettivamente annotate, mantenendo visibile la dispersione tra seed.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{figures/feats_attribute_f1.pdf}
+\caption{Macro-F1 delle coppie FEATS presenti, raggruppate per attributo: per ciascun seed si mediano gli F1 delle coppie con supporto gold positivo dell'attributo, quindi si riassumono i tre seed con media e deviazione standard campionaria. Il supporto conta le annotazioni dell'attributo nel test. \texttt{Polarity}, senza supporto, è indicato come non disponibile; \texttt{Typo}, presente nel gold ma privo di una testa addestrata, rimane distinto dagli attributi predetti.}
+\label{fig:feats-attribute-f1}
+\end{figure}
+
+Gli errori morfologici in valore assoluto riguardano soprattutto caratteristiche frequenti. Sommando i tre seed, \texttt{Number=Sing} produce 241 errori tra falsi positivi e negativi per BERT, 206 per ELECTRA e 258 per GePpeTto. Con 4\,086 occorrenze gold, l'F1 medio di questa coppia rimane rispettivamente al 99,02\%, 99,16\% e 98,95\%. I conteggi più grandi non identificano quindi necessariamente le caratteristiche con minore F1.
+
+Le coppie rare mostrano un comportamento diverso. \texttt{Degree=Abs}, presente tre volte, ha F1 nullo per BERT ed ELECTRA in tutti i seed, mentre GePpeTto raggiunge in media il $27{,}78\pm25{,}46\%$. Per \texttt{Foreign=Yes}, con undici occorrenze, BERT ottiene F1 zero nel seed 42 e circa 77,78\% e 70,59\% negli altri due. Anche \texttt{Degree=Cmp} e \texttt{Mood=Imp} ricevono F1 nullo da BERT con seed 42, contribuendo alla distanza tra le sue esecuzioni sulla macro-F1.
+
+\texttt{PronType=Exc} e \texttt{Typo=Yes}, presenti una volta ciascuna, hanno F1 nullo in tutti i nove run. La seconda coppia è assente dal training e non può essere predetta dalle teste disponibili, ma resta nella valutazione. L'assenza di occorrenze gold di un intero attributo, come \texttt{Polarity}, richiede invece di distinguere la mancanza di supporto da un F1 nullo su esempi presenti.
+
+\subsection{Esempi contestuali}
+\label{sec:contextual-examples}
+La Tabella~\ref{tab:contextual-errors} riporta quattro esempi del test per i modelli congiunti con seed 123. Sono casi illustrativi, non un campione rappresentativo degli errori; gli estratti conservano la forma gold della parola bersaglio e sono abbreviati con puntini dove necessario.
+
+\begin{table}[H]
+\centering\small
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.05}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}Xlllll}
+\toprule
+Estratto & Campo & Gold & BERT & ELECTRA & GePpeTto\\
+\midrule
+... l'operazione è considerata già \textbf{conclusa}. & UPOS & \texttt{ADJ} & \texttt{ADJ} & \texttt{ADJ} & \texttt{VERB}\\
+\addlinespace[3pt]
+Chi è il \textbf{Ministro} degli Esteri italiano? & UPOS & \texttt{PROPN} & \texttt{NOUN} & \texttt{NOUN} & \texttt{PROPN}\\
+\addlinespace[3pt]
+\textbf{Recentissima} anche la creazione di ``Splatter'' ... & \texttt{Degree} & \texttt{Abs} & \texttt{<NONE>} & \texttt{<NONE>} & \texttt{<NONE>}\\
+\addlinespace[3pt]
+A Rochester, infatti, si può \textbf{benissimo} affittare un appartamento ... & \texttt{Degree} & \texttt{Abs} & \texttt{<NONE>} & \texttt{<NONE>} & \texttt{Abs}\\
+\bottomrule
+\end{tabularx}
+\caption{Esempi sul test dei training UPOS + FEATS con seed 123. La parola bersaglio è in grassetto; \texttt{<NONE>} indica l'assenza dell'attributo predetto.}
+\label{tab:contextual-errors}
+\end{table}
+
+\emph{Conclusa} è annotata come aggettivo nel contesto considerato: BERT ed ELECTRA riproducono il gold, mentre GePpeTto assegna \texttt{VERB} e aggiunge caratteristiche di participio non presenti nell'annotazione. Il caso documenta una diversa analisi dell'ambiguità participiale, senza attribuirla a una singola proprietà dell'architettura.
+
+Per \emph{Ministro}, GePpeTto riconosce il gold \texttt{PROPN}, mentre i due encoder assegnano \texttt{NOUN}. Tutti e tre predicono però caratteristiche FEATS assenti dal gold: la correttezza UPOS non implica quella dell'intero insieme morfologico. In \emph{Recentissima}, UPOS, genere e numero sono corretti per tutti i modelli, ma manca \texttt{Degree=Abs}; su \emph{benissimo} la stessa caratteristica viene riconosciuta soltanto da GePpeTto. Separare le due valutazioni permette di localizzare questi errori.
+
+\FloatBarrier
+\section{Costo computazionale}
+\label{sec:computational-cost}
+La Tabella~\ref{tab:training-time} confronta i tempi di training sul testo originale, misurati sulla RTX 4070 SUPER da 12 GB. La misura comprende il ciclo di addestramento, le valutazioni sul development e i salvataggi dei checkpoint, mentre preparazione dei dati e caricamento iniziale del modello precedono l'intervallo misurato.
+
+\begin{table}[!htbp]
+\centering\small
+\begin{tabular}{lcc}
+\toprule
+Modello & Solo UPOS & UPOS + FEATS\\
+\midrule
+BERT XXL & $11{,}94\pm0{,}04$ & $13{,}46\pm0{,}12$\\
+ELECTRA XXL & $12{,}89\pm0{,}21$ & $14{,}71\pm0{,}36$\\
+GePpeTto & $12{,}49\pm0{,}08$ & $13{,}82\pm0{,}07$\\
+\bottomrule
+\end{tabular}
+\caption{Tempo di training in minuti sul testo originale: media $\pm$ deviazione standard campionaria su tre seed, con dieci epoche per run.}
+\label{tab:training-time}
+\end{table}
+
+Nelle esecuzioni svolte il training congiunto richiede tempi medi maggiori del solo UPOS per tutti i modelli. I valori descrivono questa configurazione hardware e software, comprese valutazioni e salvataggi, e non isolano il costo delle sole teste morfologiche. Il runtime di inferenza registrato dal \texttt{Trainer} esclude caricamento del modello e pretokenizzazione; non viene quindi presentato come tempo complessivo di elaborazione di testo grezzo.
 
 \section{Limiti metodologici}
-Il confronto usa un solo treebank italiano e segmentazione gold. Le conclusioni riguarderanno quindi quel dominio e quelle convenzioni, senza estendersi automaticamente a testi informali, altri corpora o input da segmentare. La possibile sovrapposizione tra dati pubblici e corpora di preaddestramento non è esclusa dal solo uso di split supervisionati separati.
+Il confronto usa un solo treebank italiano e segmentazione gold. Le conclusioni riguardano quindi quel dominio e quelle convenzioni, senza estendersi automaticamente a testi informali, altri corpora o input da segmentare. La possibile sovrapposizione tra dati pubblici e corpora di preaddestramento non è esclusa dal solo uso di split supervisionati separati.
 
 I modelli differiscono per numero di parametri, tokenizer, corpora e obiettivi di preaddestramento, pur condividendo gli iperparametri del fine-tuning completo, il pooling e la classificazione UPOS per parola. GePpeTto mantiene l'attenzione causale: gli stati utilizzati per una parola non accedono alle parole successive. BERT ed ELECTRA possono invece utilizzare entrambi i lati del contesto. Il protocollo comune rende confrontabile il compito supervisionato, ma non rende equivalenti queste proprietà e non permette di attribuire uno scarto alla sola architettura o al solo preaddestramento.
 
 Infine, tre seed per ciascun modello non esauriscono tutte le fonti di incertezza. Il confronto appaiato rende visibile la variabilità tra esecuzioni; eventuali intervalli basati su ricampionamento delle frasi descriverebbero invece l'incertezza del test per predizioni già ottenute. Le due forme di variabilità devono rimanere distinte.
+
+Le deviazioni standard riportate nei grafici e nelle tabelle descrivono la dispersione tra training e non sono intervalli di confidenza. Non sono stati eseguiti test di significatività sugli scarti: le medie, i supporti e le singole esecuzioni vengono quindi interpretati insieme.
 
 L'ablation FEATS confronta training indipendenti dallo stesso modello preaddestrato, con dati, budget e selezione UPOS comuni; la modifica riguarda l'aggiunta delle teste e della loss morfologica. Le conclusioni rimangono legate a questo corpus e alle configurazioni considerate. Per FEATS molte decisioni riguardano l'assenza: l'accuracy per attributo viene interpretata insieme all'accuracy esatta e alla macro-F1 delle coppie effettivamente annotate.
 
@@ -655,7 +822,9 @@ Il progetto definisce un confronto riproducibile tra BERT XXL italiano, ELECTRA 
 
 Nella fase UPOS sul testo originale ELECTRA raggiunge l'accuracy media più alta e BERT la macro-F1 media più alta; GePpeTto presenta punteggi inferiori nelle metriche considerate. L'ablation mostra un calo delle medie con il minuscolo, con variazioni non uniformi tra seed. Questi risultati descrivono il confronto sul corpus e sul protocollo adottati, senza isolare una sola causa architetturale o dimostrare una superiorità generale.
 
-L'esperimento UPOS + FEATS conserva questa struttura sul solo testo originale e aggiunge quattordici teste morfologiche e la relativa loss. Parte dallo stesso modello preaddestrato della baseline, con dieci epoche e selezione sulla macro-F1 UPOS totale. La separazione di checkpoint e risultati mantiene i due confronti distinti. Le conclusioni empiriche sull'estensione richiedono i nove nuovi training.
+L'esperimento UPOS + FEATS aggiunge quattordici teste morfologiche, mantenendo modello preaddestrato, inizializzazione UPOS, budget e selezione comuni alla baseline originale. ELECTRA raggiunge il 98,56\% di accuracy esatta FEATS e l'89,93\% di macro-F1 sulle coppie presenti. BERT ottiene il 97,98\% e l'85,65\%, con una deviazione standard della macro-F1 di 7,42 punti; GePpeTto raggiunge il 97,64\% e l'88,16\%. La variabilità tra seed e gli errori sulle coppie rare completano la lettura delle medie.
+
+La supervisione morfologica non migliora UPOS in modo uniforme: gli scarti medi di accuracy sono circa $-0{,}096$, $-0{,}029$ e $+0{,}099$ punti percentuali per BERT, ELECTRA e GePpeTto. Anche la macro-F1 cambia in modo diverso tra modelli e seed. Il criterio di selezione comune privilegia UPOS e rende visibile un compromesso con la qualità delle predizioni FEATS, particolarmente evidente nel checkpoint BERT con seed 42.
 
 Un successivo approfondimento potrà valutare una CRF, confrontando classificazione indipendente e decodifica strutturata senza cambiare il pooling. Si tratterebbe di un'ablation architetturale aggiuntiva, distinta dallo studio comune sui dati e non inclusa nelle ventisette esecuzioni. Altri sviluppi possibili sono il confronto tra strategie di pooling e la valutazione su un diverso treebank, ciascuno con verifiche dedicate.
 

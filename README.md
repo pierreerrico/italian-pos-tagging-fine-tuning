@@ -60,7 +60,7 @@ La fase UPOS è completata e verificata sulle predizioni dei 18 run. Accuracy su
 
 ELECTRA ha la maggiore accuracy media sul testo originale; BERT la maggiore macro-F1. Gli scarti sono descrittivi, senza un vincitore assoluto. Le medie diminuiscono con il minuscolo, con variazioni non uniformi tra seed.
 
-I risultati FEATS richiedono i nuovi training e restano separati. Il confronto mantiene comuni modello preaddestrato, dati, budget e criterio di selezione. Il [report](docs/report/report.pdf) approfondisce risultati, loss, metriche e limiti.
+Anche i 9 run UPOS + FEATS sono completati e verificati. Il confronto mantiene comuni modello preaddestrato, dati, budget e criterio di selezione. Il [report](docs/report/report.pdf) presenta i risultati dei 27 run, i grafici delle due ablation e l'analisi degli errori.
 
 ## Utilizzo
 
@@ -88,7 +88,7 @@ python scripts/analysis/extract_error_examples.py
 python scripts/figures/plot_results.py
 ```
 
-Questi comandi analizzano per impostazione predefinita la fase UPOS. Il notebook produce anche metriche per attributo e coppia FEATS sui 9 run con testo originale. I grafici UPOS richiedono Matplotlib (`pip install matplotlib`) e il riepilogo completo dei 18 run; vengono salvati in `docs/report/figures/`.
+Il primo comando estrae gli errori UPOS. Lo script dei grafici verifica tutti i 18 run UPOS e i 9 run UPOS + FEATS e genera sei figure, in PDF e PNG, per confronti, ablation, attributi morfologici e curve di apprendimento. Richiede Matplotlib (`pip install matplotlib`) e salva le figure in `docs/report/figures/`.
 
 ## Struttura e documentazione
 
