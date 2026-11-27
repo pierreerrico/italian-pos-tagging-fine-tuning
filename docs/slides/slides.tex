@@ -86,7 +86,7 @@ L'\textbf{accuracy} misura la frazione di parole con tag corretto. Per ogni cate
 \]
 La \textbf{macro-F1} è la media degli F1 per categoria, con uguale peso a ogni classe. Un denominatore nullo produce punteggio zero.
 \begin{slideitems}
-\item \textbf{Totale:} inventario fisso dei 17 tag. Seleziona il checkpoint della prima fase sul development.
+\item \textbf{Totale:} inventario fisso dei 17 tag. Seleziona il checkpoint di entrambi gli esperimenti sul development.
 \item \textbf{Classi presenti:} solo categorie con supporto gold positivo nello split. Nel test sono 15, senza \texttt{INTJ} e \texttt{PART}.
 \end{slideitems}
 L'accuracy descrive la correttezza globale. La macro-F1 rende visibili anche le difficoltà sulle classi rare.
@@ -159,9 +159,9 @@ Sul \textbf{solo testo originale}, le rappresentazioni per parola alimentano anc
 +\frac{1}{14}\sum_{a=1}^{14}\mathcal L_a.
 \]
 \begin{slideitems}
-\item \textbf{Punto di partenza:} best UPOS originale dello stesso modello e seed; nuove teste FEATS.
-\item \textbf{Altre dieci epoche:} nuovo AdamW e scheduler, backbone e tutte le teste addestrabili.
-\item \textbf{Selezione congiunta:} media tra macro-F1 UPOS totale e macro-F1 FEATS presenti sul development.
+\item \textbf{Punto di partenza:} stesso checkpoint preaddestrato della baseline UPOS; training indipendente.
+\item \textbf{Dieci epoche:} stesso budget e ottimizzazione, backbone e tutte le teste addestrabili.
+\item \textbf{Selezione comune:} migliore macro-F1 UPOS totale sul development, valutata a ogni epoca.
 \end{slideitems}
 \end{slidebody}
 \source{Mean pooling condiviso. Ogni loss è mediata sulle parole valide; peso morfologico complessivo pari a uno.}
@@ -241,7 +241,7 @@ La macchina di riferimento dispone di una RTX 4070 SUPER da 12 GB. Copertura e m
 \toprule
 \textbf{Impostazione} & \textbf{BERT / ELECTRA} & \textbf{GePpeTto}\\
 \midrule
-Epoche per fase & 10 & 10\\[7bp]
+Epoche per run & 10 & 10\\[7bp]
 Learning rate & $2\cdot10^{-5}$ & $2\cdot10^{-5}$\\[7bp]
 Batch train/eval & 8 / 16 & 8 / 16\\[7bp]
 Lunghezza limite & 512 subword & 512 subword\\[7bp]
@@ -251,7 +251,7 @@ Aggiornamento & Tutti i parametri & Tutti i parametri\\
 
 \begin{slideitems}
 \item \textbf{AdamW e seed:} 42, 123, 456 per tutti i modelli; un aggiornamento per batch.
-\item \textbf{Checkpoint:} macro-F1 UPOS nella prima fase; criterio congiunto nella seconda, a ogni epoca.
+\item \textbf{Checkpoint:} migliore macro-F1 UPOS totale sul development per entrambi gli esperimenti.
 \item \textbf{Copertura:} allineamento e assenza di troncature verificati prima del training. Test per la valutazione finale.
 \end{slideitems}
 \end{slidebody}
@@ -357,7 +357,7 @@ Media $\pm$ deviazione standard campionaria sui tre seed, in percentuale. I dici
 \item \textbf{Interpretazione prudente:} tre seed e un solo corpus; nessuna superiorità generale o significatività dimostrata.
 \end{slideitems}
 \smallbody
-Gli scarti UPOS tra fasi includono anche training aggiuntivo e diversa selezione; non isolano il contributo causale di FEATS.
+L'ablation FEATS mantiene comuni modello preaddestrato, dati, budget e selezione; aggiunge le teste e la supervisione morfologiche.
 \end{slidebody}
 \end{frame}
 

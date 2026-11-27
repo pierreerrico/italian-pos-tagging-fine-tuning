@@ -46,7 +46,7 @@
 \chapter*{Abstract}
 Il progetto confronta BERT XXL italiano, ELECTRA XXL italiano e GePpeTto nel compito di assegnare una categoria grammaticale a ogni parola di una frase italiana. L'adattamento supervisionato utilizza UD Italian-ISDT, con parole e confini di frase forniti dal corpus. Tutti i modelli aggregano mediante mean pooling le rappresentazioni delle subword di ciascuna parola e applicano una testa di classificazione a diciassette categorie UPOS. GePpeTto utilizza il backbone causale GPT-2; BERT ed ELECTRA mantengono invece l'attenzione bidirezionale.
 
-Il progetto comprende due ablation separate. La prima confronta testo originale e minuscolo sul solo UPOS, con riaddestramento delle configurazioni e mantenimento delle annotazioni. La seconda estende i modelli UPOS del solo testo originale alla predizione congiunta delle caratteristiche FEATS, aggiungendo quattordici teste per attributo e mantenendo il mean pooling condiviso. Ogni run prevede dieci epoche di fine-tuning completo; tutti e tre i modelli usano tre seed. La valutazione considera correttezza delle etichette, prestazioni per categoria, insiemi morfologici completi e variabilità tra esecuzioni.
+Il progetto comprende due ablation separate. La prima confronta testo originale e minuscolo sul solo UPOS, con riaddestramento delle configurazioni e mantenimento delle annotazioni. La seconda confronta UPOS e UPOS + FEATS sul solo testo originale, con training indipendenti dallo stesso checkpoint preaddestrato e quattordici teste morfologiche aggiuntive nella configurazione congiunta. Tutti i run mantengono mean pooling, dieci epoche di fine-tuning completo e selezione sulla macro-F1 UPOS totale; ciascuno dei tre modelli usa tre seed. La valutazione considera correttezza delle etichette, prestazioni per categoria, insiemi morfologici completi e variabilità tra esecuzioni.
 
 Il piano comprende diciotto run UPOS e nove ulteriori training congiunti, per ventisette esecuzioni complessive. La prima fase è completata: sul testo originale ELECTRA ha l'accuracy media più alta, pari al 98,90\%, mentre BERT raggiunge la macro-F1 più alta sulle classi presenti, pari al 96,28\%. Le differenze tra metriche e la variabilità tra tre seed richiedono un'interpretazione prudente. Le due fasi mantengono risultati e checkpoint separati; per FEATS non sono ancora disponibili risultati finali.
 
@@ -326,7 +326,7 @@ L'obiettivo è confrontare tre checkpoint preaddestrati distinti sullo stesso co
 
 Un secondo obiettivo è studiare il contributo dell'informazione sulle maiuscole. L'ablation confronta, per ogni modello, una configurazione addestrata sul testo originale e una addestrata sul testo minuscolo. La stessa trasformazione si applica ai dati di selezione e di valutazione, conservando parole, ordine e categorie gold.
 
-La fase congiunta costituisce uno studio separato, limitato al testo originale: estende ciascun checkpoint UPOS originale selezionato con teste FEATS, mantenendo modello e seed. Si studiano le prestazioni morfologiche e le variazioni UPOS dopo altre dieci epoche di addestramento. Il confronto tra fasi misura questo intervento complessivo, che comprende nuova supervisione, ulteriore ottimizzazione e selezione congiunta dei checkpoint; non ripete l'ablation delle maiuscole.
+L'esperimento congiunto costituisce uno studio separato, limitato al testo originale: UPOS e UPOS + FEATS partono dallo stesso checkpoint preaddestrato, mantenendo modello, dati, seed, dieci epoche e criterio di selezione. La configurazione congiunta aggiunge quattordici teste e la supervisione morfologica. Si studiano le prestazioni FEATS e le differenze UPOS fra i due training indipendenti; non si ripete l'ablation delle maiuscole.
 
 Il progetto riutilizza dal lavoro NLP la segmentazione gold e l'analisi per categoria. I nuovi checkpoint, il pooling e l'ablation richiedono nuovi training e valutazioni. Il piano esclude l'encoder congelato; l'eventuale CRF resta uno sviluppo opzionale.
 
@@ -400,7 +400,7 @@ Ogni rapporto con denominatore nullo viene posto a zero. La macro-F1 assegna lo 
 
 Si riportano due inventari per la media. La \emph{macro-F1 totale} utilizza tutti i diciassette tag UPOS; la \emph{macro-F1 sulle classi presenti} considera i tag con supporto gold positivo nello split valutato. Entrambe mantengono nei conteggi gli errori verso categorie diverse. Le classi assenti hanno F1 nullo nella media totale, anche se non vengono mai predette: con $m$ classi gold presenti su diciassette il massimo della media totale è pertanto $m/17$. Nel test verificato sono presenti quindici classi, per cui il massimo della macro-F1 totale è $15/17\simeq88{,}24\%$, mentre la media sulle classi presenti può raggiungere il 100\%.
 
-La macro-F1 totale sul development è la misura adottata per selezionare i checkpoint della fase UPOS. Nella fase congiunta concorre invece al criterio combinato della Sezione~\ref{sec:selection}. L'accuracy, la macro-F1 sulle classi presenti e le misure per categoria completano la valutazione finale. Le loss dei modelli non sostituiscono queste metriche comuni.
+La macro-F1 totale UPOS sul development è la misura adottata per selezionare i checkpoint sia nel training UPOS sia in quello UPOS + FEATS. L'accuracy, la macro-F1 sulle classi presenti e le misure per categoria completano la valutazione finale. Le metriche FEATS non entrano nella selezione e le loss non sostituiscono il criterio comune.
 
 \subsection{Metriche FEATS}
 \label{sec:feats-metrics}
@@ -494,7 +494,9 @@ Il piano iniziale non applica pesi di classe o label smoothing. Questa impostazi
 
 \section{Estensione multihead a UPOS e FEATS}
 \label{sec:joint-feats-loss}
-Nella seconda fase il backbone e la testa UPOS sono caricati dal checkpoint originale selezionato per lo stesso modello e seed. Quattordici nuove teste lineari FEATS vengono inizializzate dopo aver impostato il seed e ricevono le stesse rappresentazioni per parola, aggregate con mean pooling e regolarizzate dal dropout condiviso. Ogni testa predice uno dei propri valori oppure \texttt{<NONE>}. Le teste sono classificatori multiclasse distinti, con argmax in inferenza; non si applicano soglie sigmoid o vincoli dipendenti dal tag UPOS.
+Il training UPOS + FEATS carica il backbone dallo stesso checkpoint preaddestrato utilizzato dalla baseline UPOS del corrispondente modello. La testa UPOS e quattordici teste lineari FEATS vengono inizializzate dopo aver impostato il seed e ricevono le stesse rappresentazioni per parola, aggregate con mean pooling e regolarizzate dal dropout condiviso. Ogni testa FEATS predice uno dei propri valori oppure \texttt{<NONE>}. Le teste sono classificatori multiclasse distinti, con argmax in inferenza; non si applicano soglie sigmoid o vincoli dipendenti dal tag UPOS.
+
+Per ciascuna delle nove coppie modello e seed è stata verificata l'identità bit per bit del backbone e della testa UPOS all'inizializzazione dei due esperimenti, prima dell'aggiunta delle teste FEATS.
 
 Indicando con $\mathcal A$ l'insieme dei quattordici attributi, la funzione obiettivo è
 \begin{equation}
@@ -503,9 +505,9 @@ Indicando con $\mathcal A$ l'insieme dei quattordici attributi, la funzione obie
 \frac{\lambda}{|\mathcal A|}\sum_{a\in\mathcal A}\mathcal L_a,
 \qquad \lambda=1.
 \end{equation}
-Ciascuna $\mathcal L_a$ è una cross-entropy mediata sulle parole valide, comprese le decisioni di assenza; il padding rimane escluso. La media mantiene il peso complessivo della supervisione morfologica indipendente dal numero delle teste. UPOS continua a essere ottimizzato insieme a FEATS e tutte le loss aggiornano il backbone condiviso. I valori gold restano target e non entrano nell'input.
+Ciascuna $\mathcal L_a$ è una cross-entropy mediata sulle parole valide, comprese le decisioni di assenza; il padding rimane escluso. La media mantiene il peso complessivo della supervisione morfologica indipendente dal numero delle teste. UPOS viene ottimizzato insieme a FEATS e tutte le loss aggiornano il backbone condiviso. I valori gold restano target e non entrano nell'input.
 
-La continuazione avvia un nuovo AdamW e un nuovo scheduler per dieci epoche. Il checkpoint genitore è identificato dal modello, dalla variante, dal seed e dagli hash dei pesi e dei metadati. I risultati della prima fase vengono riutilizzati senza sovrascriverne modelli, manifest o predizioni.
+I nove run congiunti sono training indipendenti, con lo stesso AdamW, scheduler, numero di epoche, batch e learning rate della baseline. Il checkpoint preaddestrato è identificato dalla revisione immutabile del modello. I diciotto run UPOS storici rimangono il riferimento del confronto, senza sovrascriverne modelli, manifest o predizioni.
 
 \section{Token classification di GePpeTto e fine-tuning completo}
 \label{sec:geppetto-classification}
@@ -514,14 +516,14 @@ L'implementazione di GePpeTto deriva dalla classe Hugging Face \modelid{GPT2ForT
 
 La testa restituisce diciassette score per ogni parola e usa la cross-entropy dell'Equazione~\ref{eq:encoderloss}. Il fine-tuning aggiorna tutti i pesi del backbone e della testa, inizializzata dopo aver impostato il seed. Il vincolo causale del Transformer rimane attivo: condividere pooling, loss e impostazioni di ottimizzazione non rende GePpeTto bidirezionale.
 
-Per tutti i modelli i pesi sono mantenuti in FP32 e il calcolo usa autocast BF16 sulle GPU compatibili. Il riferimento hardware è una RTX 4070 SUPER con 12 GB di memoria. Una verifica preliminare della copertura e del consumo di memoria precede i training completi; i tempi di una prova breve non sostituiscono le misure finali del confronto.
+Per tutti i modelli i pesi sono mantenuti in FP32 e il calcolo usa autocast BF16 sulle GPU compatibili. Il riferimento hardware è una RTX 4070 SUPER con 12 GB di memoria.
 
 \chapter{Protocollo sperimentale}
 \label{chap:protocol}
 \section{Configurazioni e impostazioni iniziali}
-La prima fase comprende tre modelli, due condizioni di input e tre seed (42, 123 e 456), per $3\times2\times3=18$ run UPOS. La seconda riguarda soltanto il testo originale e aggiunge $3\times3=9$ training congiunti, per ventisette esecuzioni complessive. Le due ablation sono separate: rimozione delle maiuscole sul solo UPOS ed estensione FEATS sul solo testo originale. Tutti i run prevedono dieci epoche di fine-tuning completo. La prima fase parte dal checkpoint preaddestrato, la seconda dal corrispondente modello UPOS originale selezionato.
+Il confronto sulle maiuscole comprende tre modelli, due condizioni di input e tre seed (42, 123 e 456), per $3\times2\times3=18$ run UPOS. L'ablation FEATS riguarda soltanto il testo originale e aggiunge $3\times3=9$ training congiunti, per ventisette esecuzioni complessive. I nove nuovi run e le nove baseline UPOS originali partono dallo stesso checkpoint preaddestrato del rispettivo modello. Tutti i run prevedono dieci epoche di fine-tuning completo e lo stesso criterio di selezione.
 
-Ogni run salva configurazione, revisioni, versioni delle librerie e provenienza dei dati. La prima fase mantiene \path{outputs/upos_trainer_v1/}; la fase congiunta usa \path{outputs/upos_feats_trainer_v1/}, con directory distinte per modello, condizione e seed. Il selettore \texttt{TASK\_STAGE} del notebook vale \texttt{upos} per la prima fase e \texttt{upos\_feats}, predefinito, per la seconda. L'estensione richiede i checkpoint UPOS corrispondenti e ne verifica la provenienza.
+Ogni run salva configurazione, revisioni, versioni delle librerie e provenienza dei dati. L'esperimento UPOS mantiene \path{outputs/upos_trainer_v1/}; quello congiunto usa \path{outputs/upos_feats_trainer_v1/}, con directory distinte per modello, condizione e seed. Il selettore \texttt{TASK\_STAGE} vale \texttt{upos} per il confronto sulle maiuscole e \texttt{upos\_feats}, predefinito, per l'ablation morfologica. I due esperimenti hanno inizializzazioni indipendenti dai rispettivi modelli preaddestrati.
 
 Il notebook \path{notebooks/Italian_UPOS_AI.ipynb} estende \path{BERT_Italian_PoS_UD_2_15.ipynb} del progetto NLP, conservandone struttura e logica di esecuzione. Le sezioni seguono lo stesso ordine: ambiente, configurazione, dati, tokenizzazione, metriche, modelli, training, valutazione, confronto e analisi degli errori. L'esecuzione della cella di training avvia direttamente i sistemi e i seed configurati e riutilizza i training già completati. Il ciclo di ottimizzazione utilizza Hugging Face \texttt{Trainer}, con barre di avanzamento, valutazione periodica e salvataggio dei checkpoint.
 
@@ -553,11 +555,11 @@ Le impostazioni potranno essere riviste sul development prima della campagna def
 
 \section{Selezione del checkpoint e inferenza}
 \label{sec:selection}
-Al termine di ogni epoca il \texttt{Trainer} valuta il modello sul development e salva un checkpoint. Nella fase UPOS si massimizza la macro-F1 totale sui diciassette tag del training. Nella fase congiunta si massimizza invece
+Al termine di ogni epoca il \texttt{Trainer} valuta il modello sul development e salva un checkpoint. Entrambi gli esperimenti massimizzano la macro-F1 UPOS totale sui diciassette tag del training:
 \begin{equation}
-S_{\mathrm{dev}}=\frac{F_{\mathrm{UPOS,all}}+F_{\mathrm{FEATS,present}}}{2},
+S_{\mathrm{dev}}=F_{\mathrm{UPOS,all}}.
 \end{equation}
-dove la macro-F1 FEATS considera le coppie con supporto gold positivo nel development ed esclude \texttt{<NONE>}. I due compiti hanno uguale peso nella selezione. Il checkpoint migliore viene ricaricato al termine del training in entrambe le fasi.
+Il checkpoint migliore viene ricaricato al termine di ciascun training. Le metriche FEATS vengono calcolate per la valutazione, ma non concorrono alla selezione: il criterio rimane comune per confrontare l'effetto dell'aggiunta di supervisione morfologica su UPOS.
 
 Per tutti i modelli si calcolano gli score delle diciassette classi UPOS su ogni parola e si seleziona il tag con score massimo. Nella seconda fase ogni testa FEATS sceglie analogamente il proprio valore; le predizioni \texttt{<NONE>} non compaiono nel dizionario morfologico ricostruito. L'allineamento conserva una decisione per ogni parola gold; il padding viene escluso dalle metriche. Le annotazioni gold servono al calcolo dei punteggi e non entrano nell'input del modello.
 
@@ -646,16 +648,16 @@ I modelli differiscono per numero di parametri, tokenizer, corpora e obiettivi d
 
 Infine, tre seed per ciascun modello non esauriscono tutte le fonti di incertezza. Il confronto appaiato rende visibile la variabilità tra esecuzioni; eventuali intervalli basati su ricampionamento delle frasi descriverebbero invece l'incertezza del test per predizioni già ottenute. Le due forme di variabilità devono rimanere distinte.
 
-Le variazioni UPOS dopo la fase congiunta comprendono l'effetto della supervisione FEATS, delle ulteriori dieci epoche e del criterio di selezione che media i due compiti. Senza una continuazione UPOS di controllo con pari budget e selezione comparabile, tali variazioni non isolano il contributo causale della morfologia. Per FEATS, inoltre, molte decisioni riguardano l'assenza: l'accuracy per attributo viene interpretata insieme all'accuracy esatta e alla macro-F1 delle coppie effettivamente annotate.
+L'ablation FEATS confronta training indipendenti dallo stesso modello preaddestrato, con dati, budget e selezione UPOS comuni; la modifica riguarda l'aggiunta delle teste e della loss morfologica. Le conclusioni rimangono legate a questo corpus e alle configurazioni considerate. Per FEATS molte decisioni riguardano l'assenza: l'accuracy per attributo viene interpretata insieme all'accuracy esatta e alla macro-F1 delle coppie effettivamente annotate.
 
 \chapter{Conclusioni e sviluppi}
 Il progetto definisce un confronto riproducibile tra BERT XXL italiano, ELECTRA XXL italiano e GePpeTto nel PoS tagging. I tre modelli condividono una rappresentazione per parola costruita con mean pooling, una testa a diciassette categorie e una cross-entropy calcolata sulle parole valide. L'adattamento di GePpeTto parte dalla classe ufficiale di token classification e ne conserva i moduli, aggiungendo il pooling comune. Le metriche grammaticali e il protocollo sono condivisi, mentre il backbone di GePpeTto resta causale.
 
 Nella fase UPOS sul testo originale ELECTRA raggiunge l'accuracy media più alta e BERT la macro-F1 media più alta; GePpeTto presenta punteggi inferiori nelle metriche considerate. L'ablation mostra un calo delle medie con il minuscolo, con variazioni non uniformi tra seed. Questi risultati descrivono il confronto sul corpus e sul protocollo adottati, senza isolare una sola causa architetturale o dimostrare una superiorità generale.
 
-La seconda fase conserva questa struttura sul solo testo originale e aggiunge quattordici teste morfologiche, con loss e selezione congiunte. La separazione di checkpoint e risultati permette di affiancare la valutazione UPOS iniziale a quella UPOS + FEATS senza sostituirle. Le conclusioni empiriche sull'estensione richiedono i nove nuovi training.
+L'esperimento UPOS + FEATS conserva questa struttura sul solo testo originale e aggiunge quattordici teste morfologiche e la relativa loss. Parte dallo stesso modello preaddestrato della baseline, con dieci epoche e selezione sulla macro-F1 UPOS totale. La separazione di checkpoint e risultati mantiene i due confronti distinti. Le conclusioni empiriche sull'estensione richiedono i nove nuovi training.
 
-Un successivo approfondimento potrà valutare una CRF, confrontando classificazione indipendente e decodifica strutturata senza cambiare il pooling. Si tratterebbe di un'ablation architetturale aggiuntiva, distinta dallo studio comune sui dati e non inclusa nelle ventisette esecuzioni. Altri sviluppi possibili sono il confronto tra strategie di pooling, una continuazione UPOS di controllo e la valutazione su un diverso treebank, ciascuno con verifiche dedicate.
+Un successivo approfondimento potrà valutare una CRF, confrontando classificazione indipendente e decodifica strutturata senza cambiare il pooling. Si tratterebbe di un'ablation architetturale aggiuntiva, distinta dallo studio comune sui dati e non inclusa nelle ventisette esecuzioni. Altri sviluppi possibili sono il confronto tra strategie di pooling e la valutazione su un diverso treebank, ciascuno con verifiche dedicate.
 
 \clearpage
 \phantomsection

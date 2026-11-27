@@ -39,12 +39,12 @@ L'implementazione usa **PyTorch** e l'ecosistema **Hugging Face**: Transformers 
 
 ## Protocollo sperimentale
 
-Il piano comprende **due ablation separate**: 18 run UPOS confrontano testo originale e minuscolo; **9 nuovi training UPOS + FEATS usano soltanto il testo originale**. Si mantengono tre modelli e tre seed (`42`, `123`, `456`), per **27 esecuzioni complessive**. Ogni run FEATS riparte dal checkpoint UPOS originale dello stesso modello e seed, conservandone i pesi e aggiungendo le teste morfologiche.
+Il piano comprende **due ablation separate**: 18 run UPOS confrontano testo originale e minuscolo; **9 nuovi training UPOS + FEATS usano soltanto il testo originale**. Si mantengono tre modelli e tre seed (`42`, `123`, `456`), per **27 esecuzioni complessive**. UPOS e UPOS + FEATS sono training indipendenti dallo stesso checkpoint preaddestrato, con lo stesso budget; il secondo aggiunge le teste e la supervisione morfologiche.
 
-Si usa fine-tuning completo per **10 epoche per fase**, batch di training **8**, accumulo dei gradienti **1**, batch di valutazione **16** e **AdamW** con learning rate **2e-5**. La fase congiunta avvia un nuovo ottimizzatore e scheduler. I pesi restano in FP32, con precisione mista BF16 sulle GPU compatibili.
+Si usa fine-tuning completo per **10 epoche per run**, batch di training **8**, accumulo dei gradienti **1**, batch di valutazione **16** e **AdamW** con learning rate **2e-5**. I pesi restano in FP32, con precisione mista BF16 sulle GPU compatibili.
 
 - **Ablation delle maiuscole, solo UPOS:** ogni modello viene addestrato separatamente nelle due condizioni. La trasformazione si applica a training, development e test, conservando ordine delle parole ed etichette.
-- **Selezione del checkpoint:** nella prima fase si massimizza la macro-F1 UPOS totale sul development; nella seconda la media tra questa e la macro-F1 FEATS sulle coppie presenti. Il test viene usato per la valutazione finale.
+- **Selezione del checkpoint:** entrambi gli esperimenti massimizzano la macro-F1 UPOS totale sul development, valutata a ogni epoca. Il test viene usato per la valutazione finale.
 - **Valutazione:** accuracy e macro-F1 UPOS, uguaglianza dell'intero insieme FEATS, macro-F1 delle coppie attributo-valore e correttezza congiunta UPOS + FEATS, con variabilità tra seed.
 - **Analisi degli errori:** confusioni tra categorie ed esempi nel contesto della frase, ricavati dalle predizioni salvate.
 
@@ -60,7 +60,7 @@ La fase UPOS è completata e verificata sulle predizioni dei 18 run. Accuracy su
 
 ELECTRA ha la maggiore accuracy media sul testo originale; BERT la maggiore macro-F1. Gli scarti sono descrittivi, senza un vincitore assoluto. Le medie diminuiscono con il minuscolo, con variazioni non uniformi tra seed.
 
-I risultati FEATS richiedono i nuovi training e restano separati. Il [report](docs/report/report.pdf) approfondisce risultati, loss, metriche e limiti. Le variazioni UPOS tra fasi comprenderanno anche la prosecuzione del training e il diverso criterio di selezione.
+I risultati FEATS richiedono i nuovi training e restano separati. Il confronto mantiene comuni modello preaddestrato, dati, budget e criterio di selezione. Il [report](docs/report/report.pdf) approfondisce risultati, loss, metriche e limiti.
 
 ## Utilizzo
 
@@ -73,11 +73,11 @@ cd italian-pos-tagging
 
 1. Preparare un ambiente Python con Jupyter e PyTorch con supporto CUDA.
 2. Aprire [`notebooks/Italian_UPOS_AI.ipynb`](notebooks/Italian_UPOS_AI.ipynb) e selezionare il kernel dell'ambiente. La prima cella installa le altre dipendenze.
-3. Controllare `TASK_STAGE`, modelli attivi, seed e parametri, quindi eseguire le celle in ordine. Per partire da zero, usare prima `TASK_STAGE = "upos"`; con i checkpoint UPOS disponibili, scegliere `"upos_feats"`, il valore predefinito.
+3. Controllare `TASK_STAGE`, modelli attivi, seed e parametri, quindi eseguire le celle in ordine. Scegliere `TASK_STAGE = "upos"` per il confronto sulle maiuscole oppure `"upos_feats"`, predefinito, per la supervisione morfologica sul testo originale. I due esperimenti sono indipendenti.
 
-La cella di training avvia 18 run con `"upos"` oppure 9 con `"upos_feats"` e riutilizza quelli completati e compatibili. La fase FEATS verifica il checkpoint UPOS originale genitore prima di ogni nuovo training. Per impostazioni diverse, scegliere una nuova directory di output.
+La cella di training avvia 18 run con `"upos"` oppure 9 con `"upos_feats"` e riutilizza quelli completati e compatibili. Ogni nuovo run parte dal checkpoint preaddestrato previsto per il modello. Per impostazioni diverse, scegliere una nuova directory di output.
 
-Configurazioni, checkpoint, metriche e predizioni sono separati in `outputs/upos_trainer_v1/` e `outputs/upos_feats_trainer_v1/`. I run UPOS esistenti restano riutilizzabili. Il riepilogo della fase congiunta include `stage_paired_deltas.csv` con le variazioni UPOS appaiate. Dati locali e output sono esclusi da Git.
+Configurazioni, checkpoint, metriche e predizioni sono separati in `outputs/upos_trainer_v1/` e `outputs/upos_feats_trainer_v1/`. I risultati UPOS esistenti restano il riferimento. Il riepilogo congiunto include `stage_paired_deltas.csv` con le variazioni UPOS appaiate. Dati locali e output sono esclusi da Git.
 
 ### Analisi dei risultati
 
