@@ -14,7 +14,6 @@
 \setlength{\parindent}{1em}
 \emergencystretch=2em
 \newcommand{\modelid}[1]{{\small\path{#1}}}
-\newcommand{\invalid}{\texttt{INVALID}}
 
 \begin{document}
 \hypersetup{pageanchor=false}
@@ -26,7 +25,7 @@
         \vspace{1.5cm}
         {\Large \textsc{Corso di Laurea Magistrale in}\par \textsc{Informatica}\par}
         \vspace{1.2cm}
-        {\huge\bfseries PoS tagging italiano con encoder e modelli generativi\par}
+        {\huge\bfseries PoS tagging italiano con BERT, ELECTRA e GePpeTto\par}
         \vspace{0.5cm}
         {\Large Progetto di Intelligenza Artificiale\par}
         \vspace{0.4cm}
@@ -45,9 +44,9 @@
 \newgeometry{left=3cm,right=3cm,top=3cm,bottom=3cm}
 
 \chapter*{Abstract}
-Il progetto confronta due encoder italiani, BERT XXL ed ELECTRA XXL, e un modello linguistico generativo italiano, GePpeTto, nel compito di assegnare una categoria grammaticale a ogni parola di una frase italiana. L'adattamento supervisionato utilizza UD Italian-ISDT, con parole e confini di frase forniti dal corpus. I due encoder aggregano mediante mean pooling le rappresentazioni delle subword di ciascuna parola; il modello generativo produce invece una lista ordinata di etichette a partire dalla stessa segmentazione gold.
+Il progetto confronta BERT XXL italiano, ELECTRA XXL italiano e GePpeTto nel compito di assegnare una categoria grammaticale a ogni parola di una frase italiana. L'adattamento supervisionato utilizza UD Italian-ISDT, con parole e confini di frase forniti dal corpus. Tutti i modelli aggregano mediante mean pooling le rappresentazioni delle subword di ciascuna parola e applicano una testa di classificazione a diciassette categorie UPOS. GePpeTto utilizza il backbone causale GPT-2; BERT ed ELECTRA mantengono invece l'attenzione bidirezionale.
 
-Lo studio comprende un'ablation comune ai tre modelli: il confronto tra testo originale e testo convertito in minuscolo, con riaddestramento separato delle configurazioni e mantenimento delle annotazioni. La valutazione considera la correttezza delle etichette, le prestazioni per categoria, la variabilità tra tre seed per ciascun modello e la validità delle risposte generative. Tutti i modelli usano fine-tuning completo per dieci epoche con gli stessi iperparametri di ottimizzazione. Le metriche vengono definite prima del loro impiego nella selezione dei checkpoint e nell'interpretazione dei risultati.
+Lo studio comprende un'ablation comune ai tre modelli: il confronto tra testo originale e testo convertito in minuscolo, con riaddestramento separato delle configurazioni e mantenimento delle annotazioni. La valutazione considera la correttezza delle etichette, le prestazioni per categoria e la variabilità tra tre seed per ciascun modello. Tutti i modelli usano fine-tuning completo per dieci epoche con gli stessi iperparametri di ottimizzazione e la stessa cross-entropy per parola. Le metriche vengono definite prima del loro impiego nella selezione dei checkpoint e nell'interpretazione dei risultati.
 
 Questa versione descrive il protocollo sperimentale e le scelte implementative delle diciotto esecuzioni previste. Il confronto finale richiede il completamento dei training e della valutazione; non si attribuiscono ai nuovi modelli risultati ottenuti nel precedente progetto NLP.
 
@@ -299,31 +298,31 @@ L'obiettivo del discriminatore utilizza tutte le posizioni della sequenza, anzic
 \section{Architettura GePpeTto}
 \label{sec:geppetto-architecture}
 
-GePpeTto è un modello linguistico autoregressivo italiano basato sull'architettura GPT-2. Il Transformer Decoder applica un vincolo causale: ogni posizione può utilizzare soltanto i token precedenti e quello corrente. Il modello costruisce quindi una sequenza predicendo un token alla volta~\cite{geppetto2020,gpt22019}.
+GePpeTto è un modello linguistico autoregressivo italiano basato sull'architettura GPT-2. Il Transformer Decoder applica un vincolo causale: ogni posizione può utilizzare soltanto i token precedenti e quello corrente~\cite{geppetto2020,gpt22019}. Nel progetto il backbone viene adattato alla classificazione UPOS per parola, mantenendo questo vincolo di attenzione.
 
 \subsection{Tokenizzazione}
 \label{subsec:geppetto-tokenization}
 
 Il tokenizer byte-level BPE utilizza un vocabolario di 30\,000 token e conserva la distinzione tra maiuscole e minuscole~\cite{geppettomodel,hfgpt2}. Una parola può essere suddivisa in più token, che non coincidono necessariamente con le parole annotate nel corpus.
 
-Per il task si aggiungono diciassette token ordinari, uno per categoria UPOS, ad esempio \texttt{<UPOS\_ADJ>} e \texttt{<UPOS\_NOUN>}. Ogni etichetta viene così rappresentata da un singolo ID. Questi token non sono marcati come speciali; le relative rappresentazioni vengono inizializzate dopo aver impostato il seed e aggiornate durante il fine-tuning. La risposta gold viene costruita direttamente dagli ID dei tag e termina con il token EOS.
+Il tokenizer fast conserva l'associazione tra subword e parole gold. Le rappresentazioni appartenenti alla stessa parola vengono aggregate con il mean pooling della Sezione~\ref{sec:pooling}; la testa del task predice direttamente una delle diciassette categorie.
 
 \subsection{Struttura del decoder}
 \label{subsec:geppetto-decoder-structure}
 
-GePpeTto adotta dodici blocchi Transformer Decoder, dodici teste di attenzione e rappresentazioni di dimensione 768~\cite{geppettomodel,gpt22019}. La configurazione caricata nel notebook contiene 108\,895\,488 parametri dopo l'aggiunta dei diciassette token UPOS. Il contesto nativo comprende al massimo 1\,024 posizioni.
+GePpeTto adotta dodici blocchi Transformer Decoder, dodici teste di attenzione e rappresentazioni di dimensione 768~\cite{geppettomodel,gpt22019}. Il modello ha circa 109 milioni di parametri, una dimensione confrontabile con quella degli encoder italiani. Il contesto nativo comprende al massimo 1\,024 posizioni.
 
-Ogni blocco combina attenzione causale, una rete feed-forward con attivazione GELU, connessioni residue e LayerNorm applicata prima dei sottoblocchi. Gli embedding posizionali sono appresi; una normalizzazione finale precede la proiezione sul vocabolario~\cite{gpt22019,hfgpt2}. Il calcolo dell'attenzione segue il principio dell'Equazione~\ref{eq:scaled-dot-product-attention}, mascherando le posizioni successive al token considerato.
+Ogni blocco combina attenzione causale, una rete feed-forward con attivazione GELU, connessioni residue e LayerNorm applicata prima dei sottoblocchi. Gli embedding posizionali sono appresi e una normalizzazione finale produce gli stati del backbone~\cite{gpt22019,hfgpt2}. Il calcolo dell'attenzione segue il principio dell'Equazione~\ref{eq:scaled-dot-product-attention}, mascherando le posizioni successive al token considerato.
 
-Nel PoS tagging l'intera frase viene fornita prima della risposta. Ogni tag generato può quindi dipendere da tutte le parole in ingresso e dai tag già prodotti, pur mantenendo il vincolo causale del decoder.
+Nel PoS tagging le rappresentazioni di una parola possono utilizzare il contesto precedente e, attraverso il pooling, i suoi diversi frammenti. Il vincolo causale impedisce però di usare le parole successive. Il classificatore riceve quindi informazioni contestuali diverse da quelle disponibili agli encoder bidirezionali, anche con lo stesso pooling.
 
 \subsection{Preaddestramento}
 \label{subsec:geppetto-pretraining}
 
-GePpeTto è stato preaddestrato sull'italiano con l'obiettivo di predire il token successivo. Il corpus combina circa 2,8 GB di Wikipedia italiana e 11 GB di testi web ItWac~\cite{geppetto2020,geppettomodel}. La model card riporta blocchi di 100 token nel preaddestramento, distinti dal limite architetturale di 1\,024 posizioni: l'impiego di sequenze più lunghe nel task viene verificato durante il fine-tuning e la valutazione. Nel progetto questo modello di base viene specializzato mediante fine-tuning supervisionato completo sulle sequenze di tag UPOS. Il formato della risposta e la loss sono descritti nella Sezione~\ref{sec:geppettoloss}.
+GePpeTto è stato preaddestrato sull'italiano con l'obiettivo di predire il token successivo. Il corpus combina circa 2,8 GB di Wikipedia italiana e 11 GB di testi web ItWac~\cite{geppetto2020,geppettomodel}. La model card riporta blocchi di 100 token nel preaddestramento, distinti dal limite architetturale di 1\,024 posizioni: l'impiego di sequenze più lunghe nel task viene verificato durante il fine-tuning e la valutazione. Nel progetto il backbone viene specializzato mediante fine-tuning completo e una testa supervisionata UPOS. L'adattamento della classe di token classification è descritto nella Sezione~\ref{sec:geppetto-classification}.
 
 \section{Obiettivi del progetto}
-L'obiettivo è confrontare tre checkpoint preaddestrati distinti sullo stesso compito e sullo stesso corpus: due encoder con classificazione per parola e un modello che genera le etichette. La domanda riguarda la correttezza e gli errori dei sistemi ottenuti con il protocollo adottato, insieme al costo dell'adattamento e dell'inferenza.
+L'obiettivo è confrontare tre checkpoint preaddestrati distinti sullo stesso compito e sullo stesso corpus, con mean pooling e classificazione UPOS per parola comuni. La domanda riguarda la correttezza e gli errori dei sistemi ottenuti con il protocollo adottato, insieme al costo dell'adattamento e dell'inferenza. Le differenze di preaddestramento e di contesto causale o bidirezionale rimangono proprietà dei modelli confrontati.
 
 Un secondo obiettivo è studiare il contributo dell'informazione sulle maiuscole. L'ablation confronta, per ogni modello, una configurazione addestrata sul testo originale e una addestrata sul testo minuscolo. La stessa trasformazione si applica ai dati di selezione e di valutazione, conservando parole, ordine e categorie gold.
 
@@ -391,13 +390,6 @@ Si riportano due inventari per la media. La \emph{macro-F1 totale} utilizza tutt
 
 La macro-F1 totale sul development è la misura adottata per selezionare i checkpoint. L'accuracy, la macro-F1 sulle classi presenti e le misure per categoria completano la valutazione finale. Le loss dei modelli non sostituiscono queste metriche comuni.
 
-\subsection{Validità delle risposte generative}
-Una risposta GePpeTto è valida se contiene esattamente un ID di tag UPOS per parola gold, nell'ordine richiesto, seguito da EOS. Un ID estraneo ai diciassette tag, un conteggio errato o l'assenza di EOS rendono invalida l'intera risposta. Il padding successivo alla terminazione viene escluso dal controllo.
-
-In tal caso si assegna \invalid\ a tutte le parole della frase: ciascuna conta come errore nell'accuracy e falso negativo della propria categoria nell'F1. La frase rimane nella valutazione. Il \emph{tasso di risposte invalide} è la frazione di frasi con output non valido. Queste regole si applicano anche alla selezione sul development.
-
-Una sequenza valida può comunque contenere tag errati: il tasso di invalidità affianca le metriche UPOS, che comprendono tutte le frasi.
-
 \subsection{Aggregazione e variazioni appaiate}
 Per ciascun modello e condizione si riportano media e deviazione standard campionaria sui seed 42, 123 e 456, conservando anche le singole misure~\cite{seeds}. L'effetto dell'ablation viene espresso in punti percentuali mediante
 \begin{equation}
@@ -408,7 +400,7 @@ dove $M$ è una metrica in $[0,1]$. Un valore negativo segnala una riduzione dop
 \chapter{Modelli e funzioni obiettivo}
 \label{chap:models}
 \section{Scelta dei checkpoint}
-Il confronto usa tre checkpoint distinti, riassunti nella Tabella~\ref{tab:models}. La selezione privilegia modelli adattabili su una singola GPU e differenze che abbiano un significato per il task: due encoder italiani con diversa procedura di preaddestramento e un sistema generativo italiano di dimensione confrontabile con gli encoder.
+Il confronto usa tre checkpoint distinti, riassunti nella Tabella~\ref{tab:models}. La selezione privilegia modelli adattabili su una singola GPU e differenze che abbiano un significato per il task: due encoder italiani con diversa procedura di preaddestramento e un backbone causale italiano di dimensione confrontabile, tutti adattati alla classificazione per parola.
 
 \begin{table}[!htbp]
 \centering\small
@@ -418,7 +410,7 @@ Modello & Checkpoint Hugging Face & Adattamento\\
 \midrule
 BERT XXL italiano & \modelid{dbmdz/bert-base-italian-xxl-cased} & Fine-tuning dell'encoder e della testa UPOS\\[3pt]
 ELECTRA XXL italiano & \modelid{dbmdz/electra-base-italian-xxl-cased-discriminator} & Fine-tuning dell'encoder e della testa UPOS\\[3pt]
-GePpeTto & \modelid{LorenzoDeMattei/GePpeTto} & Fine-tuning completo e generazione di un token UPOS per parola\\
+GePpeTto & \modelid{LorenzoDeMattei/GePpeTto} & Fine-tuning del backbone causale e della testa UPOS per parola\\
 \bottomrule
 \end{tabularx}
 \caption{Modelli del confronto principale. Le revisioni immutabili dei checkpoint sono fissate nella configurazione del notebook e conservate negli output di esecuzione.}
@@ -436,30 +428,32 @@ Il corpus italiano XXL e la forma dell'output per parola rendono ELECTRA un conf
 \subsection{GePpeTto}
 \label{subsec:geppetto-checkpoint}
 
-Si utilizza \modelid{LorenzoDeMattei/GePpeTto}, alla revisione immutabile \path{d4b79e7cb2b41925adf2837a7715243f56eaf705}. Il preaddestramento italiano, una dimensione confrontabile con quella degli encoder e la formulazione generativa motivano la scelta~\cite{geppetto2020,geppettomodel}. Tutti i parametri vengono aggiornati con gli stessi iperparametri di training dei due classificatori.
+Si utilizza \modelid{LorenzoDeMattei/GePpeTto}, alla revisione immutabile \path{d4b79e7cb2b41925adf2837a7715243f56eaf705}. Il preaddestramento italiano, una dimensione confrontabile con quella degli encoder e l'attenzione causale motivano la scelta~\cite{geppetto2020,geppettomodel}. Tutti i parametri vengono aggiornati con gli stessi iperparametri di training degli altri due classificatori.
 
-Il prompt contiene le parole gold unite da spazi, precedute da \texttt{pos:} e seguite su una nuova riga da \texttt{UPOS:}. Per «Il gatto dorme», ad esempio, la risposta è la sequenza di ID corrispondente a \texttt{<UPOS\_DET><UPOS\_NOUN><UPOS\_VERB>}, seguita da EOS. Il modello genera soltanto le categorie: il numero e l'ordine delle etichette vengono verificati rispetto alle parole gold.
+L'input è la sequenza delle parole gold della frase. Il modello restituisce uno score per ogni coppia parola--categoria; la predizione seleziona una delle diciassette classi. L'allineamento tra parole e subword segue la stessa procedura adottata per BERT ed ELECTRA.
 
 \section{Allineamento e mean pooling}
 \label{sec:pooling}
-I tokenizer degli encoder suddividono alcune parole in più subword. Il task possiede però una sola etichetta per parola. Il tokenizer fast restituisce mediante \texttt{word\_ids} l'associazione tra ogni subword e la parola di origine~\cite{hfclassification}. Tale associazione viene conservata per tutte le subword e verificata prima del training.
+I tokenizer dei tre modelli suddividono alcune parole in più subword. Il task possiede però una sola etichetta per parola. Il tokenizer fast restituisce mediante \texttt{word\_ids} l'associazione tra ogni subword e la parola di origine~\cite{hfclassification}. Tale associazione viene conservata per tutte le subword e verificata prima del training.
 
-Indicando con $S_i$ l'insieme delle posizioni associate alla parola $w_i$ e con $h_j\in\mathbb{R}^{d}$ il vettore finale dell'encoder alla posizione $j$, la rappresentazione della parola è
+Indicando con $S_i$ l'insieme delle posizioni associate alla parola $w_i$ e con $h_j\in\mathbb{R}^{d}$ il vettore finale del backbone alla posizione $j$, la rappresentazione della parola è
 \begin{equation}
 \label{eq:meanpool}
 z_i=\frac{1}{|S_i|}\sum_{j\in S_i}h_j.
 \end{equation}
 Il pooling precede dropout e testa lineare. Token speciali e padding non appartengono ad alcun $S_i$ e non contribuiscono alla media. Il classificatore riceve una sequenza di parole, mentre il modello di linguaggio elabora la sequenza di subword.
 
-La media aggrega esplicitamente tutti i frammenti della parola e mantiene invariata la dimensione del vettore, senza introdurre parametri aggiuntivi. Ogni parola contribuisce una sola volta alla loss e alle metriche, indipendentemente dal numero di frammenti. Questa scelta offre una base semplice e condivisa per i due encoder.
+La media aggrega esplicitamente tutti i frammenti della parola e mantiene invariata la dimensione del vettore, senza introdurre parametri aggiuntivi. Ogni parola contribuisce una sola volta alla loss e alle metriche, indipendentemente dal numero di frammenti. Questa scelta offre una base semplice e condivisa per tutti e tre i modelli.
 
-La supervisione sulla sola prima subword è una strategia alternativa diffusa~\cite{hfclassification}. Non equivale a eliminare dal modello i frammenti successivi: la prima rappresentazione è già contestualizzata dalla self-attention. Il mean pooling viene adottato per rendere esplicita l'aggregazione e non perché il metodo precedente ricevesse soltanto il prefisso della parola. La letteratura mostra che l'aggregazione può influire sulle prestazioni in modo dipendente da task e modello~\cite{acs2021}; non dimostra che la media sia necessariamente ottimale nel presente esperimento.
+La supervisione sulla sola prima subword è una strategia alternativa diffusa~\cite{hfclassification}. Usare soltanto quel frammento può fornire meno evidenza diretta delle informazioni lessicali e morfologiche distribuite negli altri frammenti. Una divisione illustrativa di \emph{inutile} in \emph{in} e \emph{utile} chiarisce la motivazione: il pooling combina le rappresentazioni delle diverse parti. L'esempio non descrive una segmentazione verificata dei tokenizer utilizzati.
+
+Negli encoder bidirezionali la prima rappresentazione è già contestualizzata anche dai frammenti successivi; il pooling ne cambia l'aggregazione senza introdurre informazione assente dall'intera rete. In GePpeTto, invece, ciascuno stato vede soltanto il prefisso e la media include gli stati dei frammenti successivi della stessa parola. Rimane escluso il contesto delle parole successive. La letteratura mostra che l'aggregazione può influire sulle prestazioni in modo dipendente da task e modello~\cite{acs2021}; non dimostra che la media sia necessariamente ottimale nel presente esperimento.
 
 La lunghezza massima degli encoder è fissata a 512 subword, inclusi i token speciali. L'audit dei tokenizer copre tutte le frasi: la sequenza più lunga richiede 332 posizioni nella condizione originale e 331 in minuscolo. Il preprocessing verifica la copertura di ogni parola e interrompe l'esecuzione in caso di superamento del limite, evitando troncature silenziose.
 
-Per GePpeTto si considera l'intera sequenza di prompt, tag gold ed EOS. L'audit delle due condizioni in tutti e tre gli split rileva massimi di 643 token sul training, 197 sul development e 255 sul test, entro il contesto nativo di 1\,024 posizioni. Non viene troncata alcuna parola. La sezione di allineamento del notebook verifica la copertura prima del training.
+Per GePpeTto il limite configurato è di 512 subword, come per gli encoder, entro il contesto nativo di 1\,024 posizioni. Il tokenizer utilizza \texttt{add\_prefix\_space=True} per l'allineamento dell'input pretokenizzato. La sezione di allineamento del notebook verifica la copertura delle parole nelle due condizioni prima del training e interrompe l'esecuzione in caso di superamento del limite. I controlli riguardano l'input della classificazione per parola.
 
-\section{Loss degli encoder}
+\section{Loss di classificazione per parola}
 \label{sec:encoderloss}
 La testa lineare trasforma $z_i$ in uno score per ognuna delle diciassette categorie. La softmax produce la distribuzione $p_\theta(k\mid x,i)$. L'obiettivo supervisionato è la cross-entropy:
 \begin{equation}
@@ -468,29 +462,20 @@ La testa lineare trasforma $z_i$ in uno score per ognuna delle diciassette categ
 \end{equation}
 dove $B$ comprende le parole valide del batch su cui viene calcolata la loss e $N_B$ è il loro numero. Il padding è escluso mediante maschera o etichetta di ignoramento~\cite{torchce}. L'aggiornamento dei parametri e l'eventuale accumulo dei gradienti sono gestiti dal \texttt{Trainer}.
 
-Questa loss coincide con la log-verosimiglianza negativa delle categorie gold sotto la fattorizzazione adottata dal classificatore. È una scelta naturale per un problema multiclasse con una sola etichetta corretta per parola e consente di aggiornare sia la testa sia l'encoder. La predizione seleziona la categoria con score massimo.
+Questa loss coincide con la log-verosimiglianza negativa delle categorie gold sotto la fattorizzazione adottata dal classificatore. È una scelta naturale per un problema multiclasse con una sola etichetta corretta per parola e consente di aggiornare sia la testa sia il backbone. La predizione seleziona la categoria con score massimo. Lo stesso obiettivo e la stessa media sulle parole valide si applicano a tutti e tre i modelli.
 
-Il piano iniziale non applica pesi di classe o label smoothing. Questa impostazione mantiene un obiettivo semplice e uguale per i due encoder; le difficoltà sulle categorie rare vengono osservate tramite la macro-F1 e l'analisi per classe. Eventuali pesi dovrebbero essere ricavati dal training e valutati sul development, costituendo una modifica ulteriore da documentare.
+Il piano iniziale non applica pesi di classe o label smoothing. Questa impostazione mantiene un obiettivo semplice e uguale per i tre modelli; le difficoltà sulle categorie rare vengono osservate tramite la macro-F1 e l'analisi per classe. Eventuali pesi dovrebbero essere ricavati dal training e valutati sul development, costituendo una modifica ulteriore da documentare.
 
 Non si eredita la combinazione di loss UPOS e FEATS del precedente progetto. Con il solo UPOS non esistono coefficienti per bilanciare compiti diversi: il peso manuale della loss morfologica non appartiene quindi al nuovo esperimento principale.
 
-\section{Loss generativa e fine-tuning completo}
-\label{sec:geppettoloss}
+\section{Token classification di GePpeTto e fine-tuning completo}
+\label{sec:geppetto-classification}
 
-La frase e i delimitatori del task costituiscono il prompt $x$; la risposta gold $a=(a_1,\ldots,a_T)$ contiene un token UPOS per parola e il token EOS. Il training usa teacher forcing, fornendo i token gold precedenti per predire il successivo:
-\begin{equation}
-\label{eq:geppettoloss}
-\mathcal{L}_{\mathrm{gen}}=-\frac{1}{T_B}\sum_{t\in A_B}\log p_\theta(a_t\mid x,a_{<t}),
-\end{equation}
-dove $A_B$ contiene le posizioni supervisionate della risposta e $T_B=|A_B|$. I token del prompt e del padding hanno etichetta \texttt{-100} e non contribuiscono alla loss~\cite{hfgpt2,torchce}. I target vengono costruiti direttamente dagli ID dei diciassette token UPOS, seguiti da EOS.
+L'implementazione di GePpeTto deriva dalla classe Hugging Face \modelid{GPT2ForTokenClassification}, che associa una testa di classificazione agli stati di GPT-2~\cite{hfgpt2}. La sottoclasse del progetto conserva i moduli \texttt{transformer}, \texttt{dropout} e \texttt{classifier} della classe ufficiale e applica la funzione di mean pooling condivisa prima di dropout e classificatore. L'aggregazione per parola è quindi un adattamento del progetto alla supervisione gold, aggiunto alla classe di riferimento.
 
-La proiezione sul vocabolario viene calcolata soltanto sugli stati che predicono i target supervisionati. La cross-entropy e lo spostamento causale delle etichette rimangono equivalenti al calcolo della loss sull'intera sequenza con prompt mascherato. Questa implementazione evita di materializzare score non utilizzati nell'obiettivo.
+La testa restituisce diciassette score per ogni parola e usa la cross-entropy dell'Equazione~\ref{eq:encoderloss}. Il fine-tuning aggiorna tutti i pesi del backbone e della testa, inizializzata dopo aver impostato il seed. Il vincolo causale del Transformer rimane attivo: condividere pooling, loss e impostazioni di ottimizzazione non rende GePpeTto bidirezionale.
 
-Ogni parola fornisce un token target; EOS aggiunge un contributo per frase. La loss generativa considera l'intero vocabolario di 30\,017 token ed è condizionata dai tag precedenti, mentre quella degli encoder confronta diciassette categorie per parola. I valori grezzi delle due loss non costituiscono quindi una graduatoria comune: il confronto finale usa le metriche UPOS della Sezione~\ref{sec:metrics}.
-
-Il fine-tuning aggiorna tutti i pesi di GePpeTto, comprese le nuove rappresentazioni dei tag, con batch di otto frasi e un aggiornamento per batch. Come per gli encoder, i pesi sono mantenuti in FP32 e il calcolo usa autocast BF16 sulla GPU di riferimento. L'implementazione impiega il \texttt{Trainer} e non modifica l'obiettivo causale del modello.
-
-Il riferimento hardware è una RTX 4070 SUPER con 12 GB di memoria. Una verifica preliminare della copertura e del consumo di memoria precede i training completi; i tempi di una prova breve non sostituiscono le misure finali del confronto.
+Per tutti i modelli i pesi sono mantenuti in FP32 e il calcolo usa autocast BF16 sulle GPU compatibili. Il riferimento hardware è una RTX 4070 SUPER con 12 GB di memoria. Una verifica preliminare della copertura e del consumo di memoria precede i training completi; i tempi di una prova breve non sostituiscono le misure finali del confronto.
 
 \chapter{Protocollo sperimentale}
 \label{chap:protocol}
@@ -510,30 +495,28 @@ Learning rate & $2\cdot10^{-5}$ & $2\cdot10^{-5}$\\
 Batch di training per dispositivo & 8 & 8\\
 Accumulo dei gradienti & 1 & 1\\
 Batch di valutazione & 16 & 16\\
-Limite della sequenza & 512 subword & 1\,024 token\\
+Limite della sequenza & 512 subword & 512 subword\\
 Adattamento & Parametri completi & Parametri completi\\
 Seed & \multicolumn{2}{c}{42, 123, 456}\\
 \bottomrule
 \end{tabularx}
-\caption{Configurazione iniziale. I limiti di sequenza derivano dall'audit di copertura del corpus; gli iperparametri di ottimizzazione costituiscono un punto di partenza e non valori ottimali individuati sperimentalmente.}
+\caption{Configurazione iniziale con limite comune di 512 subword e controlli di copertura del corpus. Gli iperparametri di ottimizzazione costituiscono un punto di partenza e non valori ottimali individuati sperimentalmente.}
 \label{tab:training}
 \end{table}
 
-L'ottimizzazione utilizza AdamW, che separa la penalizzazione dei pesi dall'aggiornamento adattivo~\cite{adamw2019}. Per tutti i modelli si impiegano weight decay 0,01, warmup pari al 10\% dei passi e dropout 0,1. La cella di configurazione del notebook definisce le impostazioni complete; ogni esecuzione le conserva insieme alla provenienza dei dati e agli argomenti del \texttt{Trainer}. Precisione numerica e scheduler vengono registrati con le informazioni di training. Il seed viene impostato prima dell'inizializzazione delle nuove teste degli encoder o dei nuovi embedding dei tag e controlla le principali operazioni stocastiche, compreso l'ordine dei batch.
+L'ottimizzazione utilizza AdamW, che separa la penalizzazione dei pesi dall'aggiornamento adattivo~\cite{adamw2019}. Per tutti i modelli si impiegano weight decay 0,01, warmup pari al 10\% dei passi e dropout 0,1. La cella di configurazione del notebook definisce le impostazioni complete; ogni esecuzione le conserva insieme alla provenienza dei dati e agli argomenti del \texttt{Trainer}. Precisione numerica e scheduler vengono registrati con le informazioni di training. Il seed viene impostato prima dell'inizializzazione delle nuove teste di classificazione e controlla le principali operazioni stocastiche, compreso l'ordine dei batch.
 
-Le impostazioni di ottimizzazione sono comuni ai tre modelli e alle due condizioni. Differiscono i limiti nativi del contesto e la forma dell'output: classificazione per parola negli encoder, generazione autoregressiva in GePpeTto. I medesimi iperparametri non rendono identici il numero di parametri, il numero di token elaborati o il costo computazionale.
+Le impostazioni di ottimizzazione, il limite di input, il pooling e la classificazione a diciassette categorie sono comuni ai tre modelli e alle due condizioni. Differiscono l'architettura, il tokenizer e il contesto disponibile agli stati: bidirezionale in BERT ed ELECTRA, causale in GePpeTto. I medesimi iperparametri non rendono identici il numero di parametri, il numero di token elaborati o il costo computazionale.
 
-Le impostazioni potranno essere riviste sul development prima della campagna definitiva. Una modifica comporta una nuova configurazione identificabile e non sovrascrive i risultati già prodotti. Il test non guida learning rate, numero di epoche, formato del prompt o scelta della regola per gli output invalidi.
+Le impostazioni potranno essere riviste sul development prima della campagna definitiva. Una modifica comporta una nuova configurazione identificabile e non sovrascrive i risultati già prodotti. Il test non guida learning rate, numero di epoche o scelta della strategia di pooling.
 
 \section{Selezione del checkpoint e inferenza}
 \label{sec:selection}
 Al termine di ogni epoca il \texttt{Trainer} valuta il modello sul development e salva un checkpoint. Per tutti e tre i modelli si seleziona quello con la macro-F1 totale UPOS più alta, definita nella Sezione~\ref{sec:metrics}, e lo si ricarica al termine del training.
 
-Per gli encoder si calcolano i tag a partire dagli score per parola. Per GePpeTto il punteggio development richiede una vera generazione autoregressiva: il modello produce la risposta senza ricevere i tag gold precedenti. La loss in teacher forcing è utile per seguire l'ottimizzazione ma non rappresenta la qualità della generazione libera e non viene usata come sostituto della metrica comune.
+Per tutti i modelli si calcolano gli score delle diciassette classi su ogni parola e si seleziona il tag con score massimo. L'allineamento conserva una predizione per ogni parola gold; il padding viene escluso dalle metriche. Le annotazioni gold servono al calcolo dei punteggi e non entrano nell'input del modello.
 
-La generazione usa decodifica greedy sull'intero vocabolario, senza campionamento, con EOS di ID 0. Per una frase di $n$ parole il budget individuale è $n+1$ token nuovi: un tag per parola e la terminazione. Il limite viene mantenuto per ciascuna frase anche nei batch. La validità viene controllata dopo la generazione: gli ID prodotti sono verificati rispetto ai diciassette tag; conteggio, ordine e terminazione seguono le regole della Sezione~\ref{sec:metrics}.
-
-Dopo il completamento dei training, la sezione di valutazione ricarica i modelli selezionati e applica il metodo \texttt{predict} del \texttt{Trainer} al test, una volta per ciascun run. Per GePpeTto il passo di predizione esegue la generazione autoregressiva. Il test non viene usato per scegliere tra epoche dello stesso training. Metriche e predizioni vengono conservate nei file del run, così le sezioni successive possono ricalcolare confronto e analisi degli errori senza ripetere l'inferenza.
+Dopo il completamento dei training, la sezione di valutazione ricarica i modelli selezionati e applica il metodo \texttt{predict} del \texttt{Trainer} al test, una volta per ciascun run. Il test non viene usato per scegliere tra epoche dello stesso training. Metriche e predizioni vengono conservate nei file del run, così le sezioni successive possono ricalcolare confronto e analisi degli errori senza ripetere l'inferenza.
 
 \section{Ablation dell'informazione sulle maiuscole}
 \label{sec:ablation}
@@ -565,9 +548,7 @@ Le confusioni vengono conteggiate sulle parole gold e aggregate per categoria pr
 
 L'analisi affianca casi condivisi da tutti i sistemi e casi in cui le predizioni differiscono. Gli esempi qualitativi devono essere selezionati con criteri dichiarati e accompagnati dall'annotazione gold; una parola ambigua o una convenzione del treebank può rendere fuorviante una spiegazione basata soltanto sulla forma isolata.
 
-Per GePpeTto si distinguono risposte formalmente valide ma grammaticalmente errate e risposte invalide. In quest'ultimo gruppo si registrano separatamente ID fuori inventario, numero errato di tag e terminazione mancante, pur applicando la stessa penalizzazione alle metriche comuni.
-
-Il costo del sistema comprende tempo di training, numero di parametri aggiornati, memoria GPU osservata e tempo di inferenza sul medesimo test. Le misure devono indicare hardware, batch, precisione e inclusione di valutazioni e salvataggi. La generazione sequenziale dei tag e la classificazione parallela delle parole richiedono procedure diverse; i tempi appartengono all'analisi pratica del sistema e non sostituiscono le metriche linguistiche.
+Il costo del sistema comprende tempo di training, numero di parametri aggiornati, memoria GPU osservata e tempo di inferenza sul medesimo test. Le misure devono indicare hardware, batch, precisione e inclusione di valutazioni e salvataggi. Tutti i sistemi classificano le parole a partire dagli stati del backbone; tokenizzazione e architettura possono comunque produrre costi diversi. I tempi appartengono all'analisi pratica del sistema e non sostituiscono le metriche linguistiche.
 
 \chapter{Risultati e limiti del confronto}
 \label{chap:results}
@@ -577,23 +558,21 @@ Questa relazione documenta il protocollo e le scelte iniziali del progetto. Il c
 I controlli di preparazione verificano allineamento e copertura delle parole prima del training; non misurano la qualità linguistica dei checkpoint fine-tunati. I risultati del progetto NLP precedente riguardano un diverso modello di partenza e una diversa aggregazione e non popolano le tabelle del nuovo confronto.
 
 \section{Presentazione dei risultati finali}
-La raccolta finale deve contenere una riga per modello, condizione e seed, con accuracy, macro-F1 totale, macro-F1 sulle classi presenti e, per GePpeTto, tasso di risposte invalide. Per tutti i modelli un riepilogo presenta medie e deviazioni standard, conservando le misure individuali per verificare se gli scarti siano uniformi tra seed.
+La raccolta finale deve contenere una riga per modello, condizione e seed, con accuracy, macro-F1 totale e macro-F1 sulle classi presenti. Per tutti i modelli un riepilogo presenta medie e deviazioni standard, conservando le misure individuali per verificare se gli scarti siano uniformi tra seed.
 
 L'ablation richiede una tabella di differenze appaiate e un'analisi delle categorie maggiormente interessate. Un calo della sola macro-F1 può dipendere da poche occorrenze di una classe rara; per interpretarlo si riportano supporti e conteggi di errore. Un vantaggio medio contenuto non prova una superiorità generale se varia tra esecuzioni o dipende da pochi esempi.
 
-Le curve di training e development potranno mostrare evoluzione della loss e della macro-F1, con il checkpoint selezionato indicato esplicitamente. Per GePpeTto si deve distinguere la loss calcolata con teacher forcing dalla metrica ottenuta generando le liste. La lettura congiunta consente di individuare casi in cui l'ottimizzazione della probabilità dei token non corrisponde a un miglioramento del tagging libero.
+Le curve di training e development potranno mostrare evoluzione della cross-entropy per parola e della macro-F1, con il checkpoint selezionato indicato esplicitamente. La lettura congiunta permette di osservare se la riduzione della loss accompagni un miglioramento distribuito tra le categorie oppure soprattutto sulle classi frequenti.
 
 \section{Limiti metodologici}
 Il confronto usa un solo treebank italiano e segmentazione gold. Le conclusioni riguarderanno quindi quel dominio e quelle convenzioni, senza estendersi automaticamente a testi informali, altri corpora o input da segmentare. La possibile sovrapposizione tra dati pubblici e corpora di preaddestramento non è esclusa dal solo uso di split supervisionati separati.
 
-I modelli differiscono per numero di parametri, tokenizer, corpora e obiettivi di preaddestramento, pur condividendo gli iperparametri del fine-tuning completo. Gli encoder classificano le parole in parallelo; GePpeTto genera i tag in sequenza e include EOS nell'obiettivo. Il confronto è informativo sul risultato dei sistemi, ma non permette di attribuire uno scarto alla sola architettura o al solo preaddestramento.
-
-Il criterio di invalidità applicato all'intera frase è conservativo: evita riallineamenti opportunistici degli output generativi e penalizza la mancata osservanza del formato. Al tempo stesso rende una risposta quasi corretta ma formalmente incompleta diversa da una lista valida con un solo tag errato. Il tasso di invalidità e l'ispezione degli output rendono esplicita questa componente del risultato.
+I modelli differiscono per numero di parametri, tokenizer, corpora e obiettivi di preaddestramento, pur condividendo gli iperparametri del fine-tuning completo, il pooling e la classificazione UPOS per parola. GePpeTto mantiene l'attenzione causale: gli stati utilizzati per una parola non accedono alle parole successive. BERT ed ELECTRA possono invece utilizzare entrambi i lati del contesto. Il protocollo comune rende confrontabile il compito supervisionato, ma non rende equivalenti queste proprietà e non permette di attribuire uno scarto alla sola architettura o al solo preaddestramento.
 
 Infine, tre seed per ciascun modello non esauriscono tutte le fonti di incertezza. Il confronto appaiato rende visibile la variabilità tra esecuzioni; eventuali intervalli basati su ricampionamento delle frasi descriverebbero invece l'incertezza del test per predizioni già ottenute. Le due forme di variabilità devono rimanere distinte.
 
 \chapter{Conclusioni e sviluppi}
-Il progetto definisce un confronto riproducibile tra BERT XXL italiano, ELECTRA XXL italiano e GePpeTto nel PoS tagging. I primi due modelli condividono una rappresentazione per parola costruita con mean pooling e una testa supervisionata; il generativo viene adattato a produrre direttamente la sequenza dei tag. Le rispettive loss sono motivate dal tipo di output e il confronto usa metriche grammaticali comuni.
+Il progetto definisce un confronto riproducibile tra BERT XXL italiano, ELECTRA XXL italiano e GePpeTto nel PoS tagging. I tre modelli condividono una rappresentazione per parola costruita con mean pooling, una testa a diciassette categorie e una cross-entropy calcolata sulle parole valide. L'adattamento di GePpeTto parte dalla classe ufficiale di token classification e ne conserva i moduli, aggiungendo il pooling comune. Le metriche grammaticali e il protocollo sono condivisi, mentre il backbone di GePpeTto resta causale.
 
 L'ablation delle maiuscole introduce la stessa modifica dell'input per tutti i modelli e prevede il riaddestramento nelle due condizioni. Questa impostazione consente di studiare il contributo dell'informazione ortografica mantenendo invariati corpus, etichette e protocollo di ciascun modello. L'eventuale vantaggio di un sistema e l'entità dell'effetto dell'ablation restano risultati da misurare.
 

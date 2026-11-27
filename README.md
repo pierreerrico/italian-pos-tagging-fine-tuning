@@ -7,7 +7,7 @@ Il   gatto   dorme   .
 DET  NOUN    VERB    PUNCT
 ```
 
-L'obiettivo è confrontare due encoder italiani, **BERT XXL** ed **ELECTRA XXL**, con **GePpeTto**, un modello generativo italiano basato su GPT-2, sullo stesso corpus. Un secondo obiettivo è studiare quanto l'informazione sulle maiuscole contribuisca al tagging, confrontando modelli addestrati sul testo originale e sul testo convertito in minuscolo.
+L'obiettivo è confrontare **BERT XXL**, **ELECTRA XXL** e **GePpeTto** sullo stesso corpus, adattando tutti e tre alla classificazione per parola in 17 categorie. Un secondo obiettivo è studiare quanto l'informazione sulle maiuscole contribuisca al tagging, confrontando modelli addestrati sul testo originale e sul testo convertito in minuscolo.
 
 ## Dataset
 
@@ -27,11 +27,11 @@ Le parole e i confini di frase sono quelli annotati nel corpus (*gold*): la valu
 |---|---|---|
 | BERT XXL italiano | [`dbmdz/bert-base-italian-xxl-cased`](https://huggingface.co/dbmdz/bert-base-italian-xxl-cased) | Fine-tuning completo con classificazione per parola |
 | ELECTRA XXL italiano | [`dbmdz/electra-base-italian-xxl-cased-discriminator`](https://huggingface.co/dbmdz/electra-base-italian-xxl-cased-discriminator) | Fine-tuning completo con classificazione per parola |
-| GePpeTto | [`LorenzoDeMattei/GePpeTto`](https://huggingface.co/LorenzoDeMattei/GePpeTto) | Fine-tuning completo con generazione dei tag |
+| GePpeTto | [`LorenzoDeMattei/GePpeTto`](https://huggingface.co/LorenzoDeMattei/GePpeTto) | Fine-tuning completo con classificazione per parola |
 
-**BERT ed ELECTRA** producono rappresentazioni delle subword, che vengono aggregate con **mean pooling** per ottenere un vettore per parola, seguito da un classificatore lineare. La media combina tutti i frammenti della parola senza aggiungere parametri e mantiene una sola predizione e un solo contributo alla loss per parola, indipendentemente dalla sua frammentazione. Offre così una strategia comune ai due encoder.
+**Tutti e tre i modelli** usano **mean pooling** per ottenere un vettore per parola dalle rappresentazioni delle sue subword, seguito da dropout e classificatore a 17 classi. Se una parola fosse divisa in `in` + `utile`, usare solo il primo frammento significherebbe conservare una sola delle rappresentazioni: la media combina anche quelle delle altre parti della parola.
 
-**GePpeTto** riceve le parole gold nel formato compatto `pos: ...\nUPOS:` e genera autoregressivamente un tag per parola, nello stesso ordine, seguito dal token di fine sequenza (EOS). Si aggiungono al vocabolario 17 token, uno per categoria, come `<UPOS_DET>`: le etichette UPOS restano le stesse del corpus. Anche per questo modello il fine-tuning aggiorna tutti i parametri.
+**GePpeTto** usa la classe ufficiale [`GPT2ForTokenClassification`](https://huggingface.co/docs/transformers/v4.57.1/en/model_doc/gpt2#transformers.GPT2ForTokenClassification), con il pooling per parola aggiunto dal progetto. Il backbone resta **causale**, mentre BERT ed ELECTRA possono usare anche il contesto successivo.
 
 L'implementazione usa **PyTorch** e l'ecosistema **Hugging Face**: Transformers e `Trainer` per i modelli e il training, Datasets per il corpus.
 
@@ -41,7 +41,7 @@ Il piano comprende **18 training**: tre modelli, due condizioni di input e tre s
 
 - **Testo originale e minuscolo:** ogni modello viene addestrato separatamente nelle due condizioni. La trasformazione si applica a training, development e test, conservando ordine delle parole ed etichette.
 - **Selezione del checkpoint:** a ogni epoca si valuta il development e si sceglie il checkpoint con la macro-F1 UPOS totale più alta, per tutti i modelli. Il test viene usato per la valutazione finale.
-- **Valutazione:** accuracy, macro-F1 totale e sulle classi presenti, prestazioni per categoria e variabilità tra i tre seed per tutti i modelli. Per GePpeTto si misura anche la validità delle sequenze generate.
+- **Valutazione:** accuracy, macro-F1 totale e sulle classi presenti, prestazioni per categoria e variabilità tra i tre seed per tutti i modelli.
 - **Analisi degli errori:** confusioni tra categorie ed esempi nel contesto della frase, ricavati dalle predizioni salvate.
 
 La valutazione comparativa completa è in corso. Il [report](docs/report/report.pdf) approfondisce le architetture, le scelte metodologiche, le loss, gli iperparametri e i limiti del confronto.

@@ -27,7 +27,7 @@ def read_predictions(path):
             sentence_id = row["sent_id"]
         if not valid_order or not row["word"] or not sentence_id:
             raise ValueError(f"Invalid sentence/word order: {path}, position {sid}:{wid}")
-        if row["true_label"] not in TAGS or row["predicted_label"] not in TAGS | {"<INVALID>"}:
+        if row["true_label"] not in TAGS or row["predicted_label"] not in TAGS:
             raise ValueError(f"Unknown tag: {path}, position {sid}:{wid}")
         expected = str(row["true_label"] == row["predicted_label"]).lower()
         if row["correct"].lower() != expected:

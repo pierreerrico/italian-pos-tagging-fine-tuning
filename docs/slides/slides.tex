@@ -18,7 +18,7 @@
 \setbeamercolor{normal text}{fg=black,bg=white}
 \setbeamercolor{structure}{fg=black}
 \setbeamertemplate{itemize items}[circle]
-\hypersetup{pdftitle={PoS tagging italiano con encoder e LLM},pdfauthor={Pierre Errico},colorlinks=true,urlcolor=black}
+\hypersetup{pdftitle={PoS tagging italiano con BERT, ELECTRA e GePpeTto},pdfauthor={Pierre Errico},colorlinks=true,urlcolor=black}
 \newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
 \newcolumntype{Y}{>{\raggedright\arraybackslash}X}
 \newcommand{\slidetitle}[1]{%
@@ -37,7 +37,7 @@
 \begin{frame}[plain]
 \slidetitle{}
 \begin{textblock*}{643bp}(43bp,127bp)
-\centering\fontsize{36bp}{43bp}\selectfont\bfseries PoS tagging italiano\\con encoder e LLM
+\centering\fontsize{36bp}{43bp}\selectfont\bfseries PoS tagging italiano\\BERT, ELECTRA e GePpeTto
 \end{textblock*}
 \begin{textblock*}{643bp}(43bp,241bp)
 \centering\fontsize{22bp}{27bp}\selectfont Fine-tuning e ablation\\dell'informazione sulle maiuscole
@@ -104,11 +104,11 @@ L'accuracy descrive la correttezza globale. La macro-F1 rende visibili anche le 
 \midrule
 \textbf{BERT italiano XXL} & Encoder bidirezionale italiano, preaddestrato su un corpus ampliato con OSCAR. & Fine-tuning dell'encoder e classificazione per parola.\\[12bp]
 \textbf{ELECTRA italiano XXL} & Secondo encoder italiano, con pretraining basato sul riconoscimento di token sostituiti. & Stesso pooling e stessa testa di BERT.\\[12bp]
-\textbf{GePpeTto} & Decoder causale italiano, di dimensione confrontabile con gli encoder. & Fine-tuning completo e generazione dei tag UPOS.\\
+\textbf{GePpeTto} & Backbone causale italiano, di dimensione confrontabile con gli encoder. & Stesso pooling e classificazione per parola.\\
 \bottomrule
 \end{tabularx}
 
-I tre checkpoint consentono di confrontare \textbf{due encoder} e una \textbf{formulazione generativa} dello stesso compito.
+I tre checkpoint usano \textbf{mean pooling e una testa UPOS a 17 classi}, mantenendo le rispettive proprietà del contesto.
 \end{slidebody}
 \source{DBMDZ: BERT/ELECTRA XXL. GePpeTto: De Mattei et al., 2020; circa 109 milioni di parametri.}
 \end{frame}
@@ -116,25 +116,25 @@ I tre checkpoint consentono di confrontare \textbf{due encoder} e una \textbf{fo
 \begin{frame}[plain]
 \slidetitle{Allineamento e mean pooling}
 \begin{slidebody}[88]
-Il tokenizer può dividere una parola in più subword. \texttt{word\_ids} mantiene la corrispondenza con la parola di origine.
+Più subword possono appartenere alla stessa parola. \texttt{word\_ids} ne conserva l'allineamento.
 \[
  \mathbf h_i^{\mathrm{parola}}
  =\frac{1}{|S_i|}\sum_{t\in S_i}\mathbf h_t,
  \qquad S_i=\{\text{subword della parola }i\}.
 \]
 \begin{slideitems}
-\item \textbf{Aggregazione esplicita:} la media usa gli hidden state finali di tutti i frammenti e produce un vettore per parola.
+\item \textbf{Tutti i frammenti:} la media combina gli stati finali delle subword e la loro evidenza lessicale e morfologica.
 \item \textbf{Una sola decisione:} la testa lineare assegna un tag UPOS. Token speciali e padding sono esclusi.
 \item \textbf{Scelta semplice:} dimensione costante e nessun parametro aggiuntivo per il pooling.
 \end{slideitems}
 \smallbody
-La prima subword era già contestualizzata dalle altre. Il pooling cambia l'aggregazione, senza garantire a priori un miglioramento.
+\emph{In} + \emph{utile} è una divisione illustrativa: usare solo il primo frammento può dare meno evidenza diretta del resto. La media non garantisce un miglioramento.
 \end{slidebody}
-\source{Mean pooling per BERT ed ELECTRA. \'Acs et al., \href{https://aclanthology.org/2021.eacl-main.194/}{Subword Pooling Makes a Difference}, EACL 2021.}
+\source{Mean pooling comune ai tre modelli. Esempio illustrativo, non segmentazione verificata. \'Acs et al., EACL 2021.}
 \end{frame}
 
 \begin{frame}[plain]
-\slidetitle{Loss degli encoder}
+\slidetitle{Loss per parola}
 \begin{slidebody}
 Ogni parola ha \textbf{un solo tag gold} fra 17 categorie. La testa lineare produce gli score e la softmax definisce le probabilità.
 \[
@@ -142,68 +142,63 @@ Ogni parola ha \textbf{un solo tag gold} fra 17 categorie. La testa lineare prod
  =-\frac{1}{N}\sum_{i=1}^{N}\log p_\theta(y_i\mid x).
 \]
 \begin{slideitems}
-\item \textbf{Cross-entropy:} massimizza la probabilità del tag corretto ed è differenziabile rispetto a testa ed encoder.
+\item \textbf{Cross-entropy:} massimizza la probabilità del tag corretto ed è differenziabile rispetto a testa e backbone.
 \item \textbf{Media sulle parole valide:} ogni parola ha lo stesso peso, anche quando il tokenizer produce molti frammenti.
 \item \textbf{Obiettivo unico:} il piano principale predice UPOS. Non introduce loss morfologiche o pesi multitask.
 \end{slideitems}
 \end{slidebody}
-\source{BERT ed ELECTRA: stesso obiettivo supervisionato. Classi non pesate nella configurazione iniziale.}
+\source{Stesso obiettivo supervisionato per tutti i modelli. Classi non pesate nella configurazione iniziale.}
 \end{frame}
 
 \begin{frame}[plain]
-\slidetitle{PoS tagging generativo}
+\slidetitle{GePpeTto: classificazione}
 \begin{slidebody}
-GePpeTto riceve le \textbf{parole gold} nel prompt e genera un token UPOS per parola, seguito da EOS.
+Il backbone GPT-2 viene adattato con la classe ufficiale \texttt{GPT2ForTokenClassification} di Transformers.
 
 \smallbody
-\textbf{Esempio illustrativo}
-\begin{quote}\upshape
-\texttt{pos: Il gatto dorme}\\
-\texttt{UPOS:}\\[8bp]
-\texttt{<UPOS\_DET><UPOS\_NOUN><UPOS\_VERB>} + EOS
-\end{quote}
+\textbf{Pipeline per parola}
+\[
+\text{subword}\;\longrightarrow\;\text{GPT-2}\;\longrightarrow\;
+\text{mean pooling}\;\longrightarrow\;\text{17 score}.
+\]
 
 \begin{slideitems}
-\item \textbf{Stessa segmentazione} degli encoder, con un'etichetta per parola.
-\item \textbf{Diciassette nuovi token ordinari:} le categorie hanno ID dedicati, senza rigenerare le parole.
-\item \textbf{Controllo rigoroso:} soli ID dei tag, conteggio corretto ed EOS finale.
+\item \textbf{Moduli ufficiali:} Transformer, dropout e classificatore della classe di token classification.
+\item \textbf{Adattamento del progetto:} pooling degli stati prima di dropout e classificatore.
+\item \textbf{Predizione:} massimo score fra le diciassette categorie, una decisione per parola gold.
 \end{slideitems}
 \end{slidebody}
-\source{Checkpoint: LorenzoDeMattei/GePpeTto. L'esempio illustra il formato, non una predizione misurata.}
+\source{Checkpoint: LorenzoDeMattei/GePpeTto. Il pooling per parola è aggiunto dal progetto alla classe ufficiale.}
 \end{frame}
 
 \begin{frame}[plain]
-\slidetitle{Loss del modello generativo}
+\slidetitle{Contesto causale e confronto}
 \begin{slidebody}[88]
-Il fine-tuning insegna a generare i tag corretti, un token alla volta, condizionati al prompt e ai tag precedenti.
-\[
- \mathcal L_{\mathrm{gen}}
- =-\frac{1}{|A|}\sum_{t\in A}\log p_\theta(a_t\mid x,a_{<t}).
-\]
+Lo stesso protocollo di classificazione mantiene le \textbf{diverse proprietà dei backbone}.
 \begin{slideitems}
-\item \textbf{Cross-entropy causale} su un token UPOS per parola e sul token EOS.
-\item \textbf{Prompt e padding mascherati:} la loss considera soltanto i target della risposta.
-\item \textbf{Teacher forcing nel training, generazione nella valutazione:} i tag precedenti al test sono prodotti dal modello.
+\item \textbf{BERT ed ELECTRA:} ogni stato può usare il contesto precedente e successivo.
+\item \textbf{GePpeTto:} ogni stato usa soltanto il prefisso. Il pooling combina i frammenti della parola, senza accesso alle parole successive.
+\item \textbf{Confronto comune:} stessa supervisione per parola, loss, pooling e impostazioni di ottimizzazione.
 \end{slideitems}
 \smallbody
-La loss generativa usa l'intero vocabolario e include EOS. I suoi valori non costituiscono una graduatoria comune con la loss degli encoder.
+La testa di token classification mantiene il vincolo causale di GPT-2. Le differenze osservate dipenderanno anche da tokenizer e preaddestramento.
 \end{slidebody}
-\source{La proiezione sulle sole posizioni supervisionate mantiene la stessa cross-entropy causale.}
+\source{GPT-2 resta causale; BERT ed ELECTRA sono bidirezionali. Il protocollo non isola una singola differenza.}
 \end{frame}
 
 \begin{frame}[plain]
 \slidetitle{Fine-tuning completo}
 \begin{slidebody}
-Tutti i modelli aggiornano \textbf{l'intera rete}. GePpeTto aggiunge al vocabolario un token ordinario per ciascuna categoria UPOS.
+Tutti i modelli aggiornano \textbf{il backbone e la testa di classificazione}, con una sola etichetta UPOS per parola.
 \begin{slideitems}
-\item \textbf{Nuove componenti:} testa di classificazione negli encoder, embedding dei diciassette tag nel generativo.
+\item \textbf{Nuove componenti:} testa di classificazione a diciassette categorie per ciascun modello.
 \item \textbf{Inizializzazione riproducibile:} il seed viene impostato prima di creare i nuovi parametri.
 \item \textbf{Precisione:} pesi in FP32 e autocast BF16, con gli stessi iperparametri di ottimizzazione.
 \end{slideitems}
 \smallbody
 La macchina di riferimento dispone di una RTX 4070 SUPER da 12 GB. Copertura e memoria vengono verificate prima dei training completi.
 \end{slidebody}
-\source{Hugging Face Transformers. Il modello generativo usa circa 109 milioni di parametri.}
+\source{Hugging Face Transformers. GePpeTto usa circa 109 milioni di parametri.}
 \end{frame}
 
 \begin{frame}[plain]
@@ -217,7 +212,7 @@ La macchina di riferimento dispone di una RTX 4070 SUPER da 12 GB. Copertura e m
 Epoche & 10 & 10\\[7bp]
 Learning rate & $2\cdot10^{-5}$ & $2\cdot10^{-5}$\\[7bp]
 Batch train/eval & 8 / 16 & 8 / 16\\[7bp]
-Lunghezza limite & 512 subword & 1.024 token totali\\[7bp]
+Lunghezza limite & 512 subword & 512 subword\\[7bp]
 Aggiornamento & Tutti i parametri & Tutti i parametri\\
 \bottomrule
 \end{tabularx}
@@ -225,7 +220,7 @@ Aggiornamento & Tutti i parametri & Tutti i parametri\\
 \begin{slideitems}
 \item \textbf{AdamW e seed:} 42, 123, 456 per tutti i modelli; un aggiornamento per batch.
 \item \textbf{Checkpoint:} migliore macro-F1 totale sul development, valutata a ogni epoca.
-\item \textbf{Copertura:} GePpeTto richiede al massimo 643 token. Il test resta riservato alla valutazione finale.
+\item \textbf{Copertura:} allineamento e assenza di troncature verificati prima del training. Test per la valutazione finale.
 \end{slideitems}
 \end{slidebody}
 \source{Impostazioni comuni: weight decay 0,01, warmup 10\%, dropout 0,1 e fine-tuning completo.}
@@ -288,12 +283,12 @@ Ogni sistema viene valutato sulle \textbf{stesse parole}, con accuracy, macro-F1
 \begin{slideitems}
 \item \textbf{Per categoria:} precision, recall, F1 e supporto, per leggere le differenze sulle classi rare.
 \item \textbf{Confusioni ed esempi contestuali:} nomi comuni e propri, ambiguità verbali e parole poco frequenti.
-\item \textbf{Output GePpeTto non valido:} ID fuori inventario, conteggio errato o EOS mancante rendono errata l'intera frase. Ogni parola resta nel denominatore.
+\item \textbf{Allineamento comune:} una predizione tra diciassette categorie per ogni parola gold; padding escluso dalle metriche.
 \end{slideitems}
 \smallbody
-Il \textbf{tasso di risposte non valide} è il numero di frasi con output non valido diviso il totale delle frasi. Si riporta insieme alle metriche linguistiche.
+Le predizioni sono associate alle parole del corpus. Ogni errore contribuisce alle metriche della propria categoria.
 \end{slidebody}
-\source{Le frasi problematiche non vengono rimosse dal test. Le predizioni e gli errori restano salvati.}
+\source{Le metriche comprendono tutte le parole gold. Le predizioni e gli errori restano salvati.}
 \end{frame}
 
 \begin{frame}[plain]
@@ -321,7 +316,7 @@ La CRF e l'estensione FEATS restano possibili sviluppi successivi al confronto p
 \href{https://huggingface.co/dbmdz/bert-base-italian-xxl-cased}{\modelid{dbmdz/bert-base-italian-xxl-cased}}\\[5bp]
 \href{https://huggingface.co/dbmdz/electra-base-italian-xxl-cased-discriminator}{\modelid{dbmdz/electra-base-italian-xxl-cased-discriminator}}
 
-\textbf{Generativo}\\
+\textbf{Backbone causale italiano}\\
 \href{https://huggingface.co/LorenzoDeMattei/GePpeTto}{\modelid{LorenzoDeMattei/GePpeTto}}
 
 \textbf{Pretraining}\\
