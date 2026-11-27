@@ -1,4 +1,4 @@
-# PoS tagging italiano con BERT, ELECTRA e Qwen
+# PoS tagging italiano con BERT, ELECTRA e GePpeTto
 
 Progetto di **Intelligenza Artificiale** sul fine-tuning di modelli linguistici per il *Part-of-Speech tagging* italiano: assegnare a ogni parola la sua categoria grammaticale nel contesto della frase, usando le etichette Universal POS (UPOS).
 
@@ -7,7 +7,7 @@ Il   gatto   dorme   .
 DET  NOUN    VERB    PUNCT
 ```
 
-L'obiettivo è confrontare due encoder italiani, **BERT XXL** ed **ELECTRA XXL**, con un modello generativo multilingue, **Qwen2.5-1.5B-Instruct**, sullo stesso corpus. Un secondo obiettivo è studiare quanto l'informazione sulle maiuscole contribuisca al tagging, confrontando modelli addestrati sul testo originale e sul testo convertito in minuscolo.
+L'obiettivo è confrontare due encoder italiani, **BERT XXL** ed **ELECTRA XXL**, con **GePpeTto**, un modello generativo italiano basato su GPT-2, sullo stesso corpus. Un secondo obiettivo è studiare quanto l'informazione sulle maiuscole contribuisca al tagging, confrontando modelli addestrati sul testo originale e sul testo convertito in minuscolo.
 
 ## Dataset
 
@@ -27,21 +27,21 @@ Le parole e i confini di frase sono quelli annotati nel corpus (*gold*): la valu
 |---|---|---|
 | BERT XXL italiano | [`dbmdz/bert-base-italian-xxl-cased`](https://huggingface.co/dbmdz/bert-base-italian-xxl-cased) | Fine-tuning completo con classificazione per parola |
 | ELECTRA XXL italiano | [`dbmdz/electra-base-italian-xxl-cased-discriminator`](https://huggingface.co/dbmdz/electra-base-italian-xxl-cased-discriminator) | Fine-tuning completo con classificazione per parola |
-| Qwen2.5-1.5B-Instruct | [`Qwen/Qwen2.5-1.5B-Instruct`](https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct) | Fine-tuning con QLoRA a 4 bit e generazione dei tag |
+| GePpeTto | [`LorenzoDeMattei/GePpeTto`](https://huggingface.co/LorenzoDeMattei/GePpeTto) | Fine-tuning completo con generazione dei tag |
 
 **BERT ed ELECTRA** producono rappresentazioni delle subword, che vengono aggregate con **mean pooling** per ottenere un vettore per parola, seguito da un classificatore lineare. La media combina tutti i frammenti della parola senza aggiungere parametri e mantiene una sola predizione e un solo contributo alla loss per parola, indipendentemente dalla sua frammentazione. Offre così una strategia comune ai due encoder.
 
-**Qwen** riceve un'istruzione con le parole numerate e genera un array JSON con un tag UPOS per parola, nello stesso ordine. L'adattamento QLoRA aggiorna gli adapter mantenendo quantizzati i pesi del modello di base, per contenere il consumo di memoria.
+**GePpeTto** riceve le parole gold nel formato compatto `pos: ...\nUPOS:` e genera autoregressivamente un tag per parola, nello stesso ordine, seguito dal token di fine sequenza (EOS). Si aggiungono al vocabolario 17 token, uno per categoria, come `<UPOS_DET>`: le etichette UPOS restano le stesse del corpus. Anche per questo modello il fine-tuning aggiorna tutti i parametri.
 
-L'implementazione usa **PyTorch** e l'ecosistema **Hugging Face**: Transformers e `Trainer` per i modelli e il training, Datasets per il corpus, PEFT e bitsandbytes per QLoRA.
+L'implementazione usa **PyTorch** e l'ecosistema **Hugging Face**: Transformers e `Trainer` per i modelli e il training, Datasets per il corpus.
 
 ## Protocollo sperimentale
 
-Il piano comprende **18 training**: tre modelli, due condizioni di input e tre seed (`42`, `123`, `456`).
+Il piano comprende **18 training**: tre modelli, due condizioni di input e tre seed (`42`, `123`, `456`) per ciascun modello. Per tutti si usa fine-tuning completo per **10 epoche**, batch di training **8**, accumulo dei gradienti **1**, batch di valutazione **16** e ottimizzatore **AdamW** con learning rate **2e-5**. I pesi restano in FP32, con calcoli in precisione mista BF16 sulle GPU compatibili.
 
 - **Testo originale e minuscolo:** ogni modello viene addestrato separatamente nelle due condizioni. La trasformazione si applica a training, development e test, conservando ordine delle parole ed etichette.
-- **Selezione del checkpoint:** a ogni epoca si valuta il development; si sceglie il checkpoint con la macro-F1 UPOS totale più alta e lo si usa per la valutazione sul test.
-- **Valutazione:** accuracy, macro-F1 totale e sulle classi presenti, prestazioni per categoria e variabilità tra seed. Per Qwen si misura anche la validità delle risposte generate.
+- **Selezione del checkpoint:** a ogni epoca si valuta il development e si sceglie il checkpoint con la macro-F1 UPOS totale più alta, per tutti i modelli. Il test viene usato per la valutazione finale.
+- **Valutazione:** accuracy, macro-F1 totale e sulle classi presenti, prestazioni per categoria e variabilità tra i tre seed per tutti i modelli. Per GePpeTto si misura anche la validità delle sequenze generate.
 - **Analisi degli errori:** confusioni tra categorie ed esempi nel contesto della frase, ricavati dalle predizioni salvate.
 
 La valutazione comparativa completa è in corso. Il [report](docs/report/report.pdf) approfondisce le architetture, le scelte metodologiche, le loss, gli iperparametri e i limiti del confronto.
@@ -55,7 +55,7 @@ git clone https://github.com/pierreerrico/italian-pos-tagging.git
 cd italian-pos-tagging
 ```
 
-1. Preparare un ambiente Python con Jupyter e PyTorch con supporto CUDA. La configurazione QLoRA richiede una GPU compatibile con la quantizzazione a 4 bit.
+1. Preparare un ambiente Python con Jupyter e PyTorch con supporto CUDA.
 2. Aprire [`notebooks/Italian_UPOS_AI.ipynb`](notebooks/Italian_UPOS_AI.ipynb) e selezionare il kernel dell'ambiente. La prima cella installa le altre dipendenze.
 3. Controllare modelli attivi, seed, parametri e directory di output nelle celle di configurazione, quindi eseguire le celle in ordine.
 

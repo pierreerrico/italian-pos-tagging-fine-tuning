@@ -104,13 +104,13 @@ L'accuracy descrive la correttezza globale. La macro-F1 rende visibili anche le 
 \midrule
 \textbf{BERT italiano XXL} & Encoder bidirezionale italiano, preaddestrato su un corpus ampliato con OSCAR. & Fine-tuning dell'encoder e classificazione per parola.\\[12bp]
 \textbf{ELECTRA italiano XXL} & Secondo encoder italiano, con pretraining basato sul riconoscimento di token sostituiti. & Stesso pooling e stessa testa di BERT.\\[12bp]
-\textbf{Qwen2.5 1.5B Instruct} & Generativo multilingue, con supporto all'italiano e output strutturati. & Fine-tuning supervisionato con adapter LoRA.\\
+\textbf{GePpeTto} & Decoder causale italiano, di dimensione confrontabile con gli encoder. & Fine-tuning completo e generazione dei tag UPOS.\\
 \bottomrule
 \end{tabularx}
 
 I tre checkpoint consentono di confrontare \textbf{due encoder} e una \textbf{formulazione generativa} dello stesso compito.
 \end{slidebody}
-\source{DBMDZ: BERT/ELECTRA XXL. Qwen: Qwen2.5-1.5B-Instruct, 1,54 miliardi di parametri.}
+\source{DBMDZ: BERT/ELECTRA XXL. GePpeTto: De Mattei et al., 2020; circa 109 milioni di parametri.}
 \end{frame}
 
 \begin{frame}[plain]
@@ -153,56 +153,57 @@ Ogni parola ha \textbf{un solo tag gold} fra 17 categorie. La testa lineare prod
 \begin{frame}[plain]
 \slidetitle{PoS tagging generativo}
 \begin{slidebody}
-Qwen riceve la frase con \textbf{parole gold numerate} e deve generare una lista ordinata di tag UPOS.
+GePpeTto riceve le \textbf{parole gold} nel prompt e genera un token UPOS per parola, seguito da EOS.
 
 \smallbody
 \textbf{Esempio illustrativo}
 \begin{quote}\upshape
-\texttt{1: Il\quad 2: gatto\quad 3: dorme}\\[8bp]
-\texttt{["DET", "NOUN", "VERB"]}
+\texttt{pos: Il gatto dorme}\\
+\texttt{UPOS:}\\[8bp]
+\texttt{<UPOS\_DET><UPOS\_NOUN><UPOS\_VERB>} + EOS
 \end{quote}
 
 \begin{slideitems}
-\item \textbf{Stessa segmentazione} degli encoder, con esattamente un tag per parola.
-\item \textbf{Nessuna riscrittura delle parole:} il modello genera solo la lista JSON dei tag.
-\item \textbf{Controllo rigoroso:} JSON valido, lunghezza corretta e tag appartenenti all'inventario UPOS.
+\item \textbf{Stessa segmentazione} degli encoder, con un'etichetta per parola.
+\item \textbf{Diciassette nuovi token ordinari:} le categorie hanno ID dedicati, senza rigenerare le parole.
+\item \textbf{Controllo rigoroso:} soli ID dei tag, conteggio corretto ed EOS finale.
 \end{slideitems}
 \end{slidebody}
-\source{Checkpoint: Qwen/Qwen2.5-1.5B-Instruct. L'esempio non rappresenta una predizione misurata.}
+\source{Checkpoint: LorenzoDeMattei/GePpeTto. L'esempio illustra il formato, non una predizione misurata.}
 \end{frame}
 
 \begin{frame}[plain]
 \slidetitle{Loss del modello generativo}
 \begin{slidebody}[88]
-Il fine-tuning supervisionato insegna a generare la risposta corretta, un token alla volta, condizionata al prompt e ai token precedenti.
+Il fine-tuning insegna a generare i tag corretti, un token alla volta, condizionati al prompt e ai tag precedenti.
 \[
- \mathcal L_{\mathrm{LLM}}
+ \mathcal L_{\mathrm{gen}}
  =-\frac{1}{|A|}\sum_{t\in A}\log p_\theta(a_t\mid x,a_{<t}).
 \]
 \begin{slideitems}
-\item \textbf{Cross-entropy causale} sui token della risposta gold, inclusa la struttura del formato richiesto.
-\item \textbf{Prompt mascherato nella loss:} apprendere la risposta evita di spendere l'obiettivo sulla copia dell'input.
-\item \textbf{Training con teacher forcing, valutazione con generazione:} al test i tag precedenti sono prodotti dal modello.
+\item \textbf{Cross-entropy causale} su un token UPOS per parola e sul token EOS.
+\item \textbf{Prompt e padding mascherati:} la loss considera soltanto i target della risposta.
+\item \textbf{Teacher forcing nel training, generazione nella valutazione:} i tag precedenti al test sono prodotti dal modello.
 \end{slideitems}
 \smallbody
-Le loss degli encoder sono mediate sulle parole, quella di Qwen sui token della risposta. I loro valori grezzi non costituiscono una graduatoria comune.
+La loss generativa usa l'intero vocabolario e include EOS. I suoi valori non costituiscono una graduatoria comune con la loss degli encoder.
 \end{slidebody}
-\source{SFT con loss solo sulla risposta. Il confronto tra sistemi usa le metriche UPOS definite prima.}
+\source{La proiezione sulle sole posizioni supervisionate mantiene la stessa cross-entropy causale.}
 \end{frame}
 
 \begin{frame}[plain]
-\slidetitle{Fine-tuning con QLoRA}
+\slidetitle{Fine-tuning completo}
 \begin{slidebody}
-Qwen richiede più memoria degli encoder. \textbf{QLoRA} combina pesi di base quantizzati a 4 bit e piccoli adapter LoRA addestrabili.
+Tutti i modelli aggiornano \textbf{l'intera rete}. GePpeTto aggiunge al vocabolario un token ordinario per ciascuna categoria UPOS.
 \begin{slideitems}
-\item \textbf{LoRA:} aggiorna matrici a rango ridotto all'interno del modello, riducendo i parametri da ottimizzare.
-\item \textbf{Quantizzazione:} riduce la memoria dei pesi di base. Il modello continua ad adattarsi attraverso gli adapter.
-\item \textbf{Configurazione iniziale:} rango 16, fattore di scala 32, dropout 0,05. I valori sono scelte di partenza da documentare.
+\item \textbf{Nuove componenti:} testa di classificazione negli encoder, embedding dei diciassette tag nel generativo.
+\item \textbf{Inizializzazione riproducibile:} il seed viene impostato prima di creare i nuovi parametri.
+\item \textbf{Precisione:} pesi in FP32 e autocast BF16, con gli stessi iperparametri di ottimizzazione.
 \end{slideitems}
 \smallbody
-La macchina dispone di una RTX 4070 SUPER da 12 GB. Una prova preliminare deve verificare lunghezza, batch e consumo effettivo.
+La macchina di riferimento dispone di una RTX 4070 SUPER da 12 GB. Copertura e memoria vengono verificate prima dei training completi.
 \end{slidebody}
-\source{Hu et al., LoRA, 2021. Dettmers et al., QLoRA, 2023. Hugging Face PEFT.}
+\source{Hugging Face Transformers. Il modello generativo usa circa 109 milioni di parametri.}
 \end{frame}
 
 \begin{frame}[plain]
@@ -211,23 +212,23 @@ La macchina dispone di una RTX 4070 SUPER da 12 GB. Una prova preliminare deve v
 \smallbody
 \begin{tabularx}{\linewidth}{@{}L{155bp}YY@{}}
 \toprule
-\textbf{Impostazione} & \textbf{BERT / ELECTRA} & \textbf{Qwen}\\
+\textbf{Impostazione} & \textbf{BERT / ELECTRA} & \textbf{GePpeTto}\\
 \midrule
-Epoche massime & 10 & 3\\[7bp]
-Learning rate & $2\cdot10^{-5}$ & $2\cdot10^{-4}$\\[7bp]
-Batch training & 8 & 1, accumulo su 8 step\\[7bp]
-Lunghezza limite & 512 subword & 3.072 token totali\\[7bp]
-Ottimizzazione & Encoder e testa & Adapter LoRA\\
+Epoche & 10 & 10\\[7bp]
+Learning rate & $2\cdot10^{-5}$ & $2\cdot10^{-5}$\\[7bp]
+Batch train/eval & 8 / 16 & 8 / 16\\[7bp]
+Lunghezza limite & 512 subword & 1.024 token totali\\[7bp]
+Aggiornamento & Tutti i parametri & Tutti i parametri\\
 \bottomrule
 \end{tabularx}
 
 \begin{slideitems}
-\item \textbf{AdamW e tre seed:} 42, 123, 456. Configurazioni iniziali, senza ricerca sul test.
-\item \textbf{Checkpoint:} massimo della macro-F1 totale sul development, con vera generazione per Qwen.
-\item \textbf{Copertura verificata:} Qwen richiede fino a 2.907 token. Il limite 3.072 evita troncamenti. Il test resta riservato alla valutazione finale.
+\item \textbf{AdamW e seed:} 42, 123, 456 per tutti i modelli; un aggiornamento per batch.
+\item \textbf{Checkpoint:} migliore macro-F1 totale sul development, valutata a ogni epoca.
+\item \textbf{Copertura:} GePpeTto richiede al massimo 643 token. Il test resta riservato alla valutazione finale.
 \end{slideitems}
 \end{slidebody}
-\source{Budget diversi per famiglia: confronto delle configurazioni descritte, non a parità di calcolo.}
+\source{Impostazioni comuni: weight decay 0,01, warmup 10\%, dropout 0,1 e fine-tuning completo.}
 \end{frame}
 
 \begin{frame}[plain]
@@ -264,17 +265,17 @@ Training / dev / test & Testo originale & Testo tutto minuscolo\\
 \midrule
 BERT italiano XXL & 3 seed & 3 seed\\[15bp]
 ELECTRA italiano XXL & 3 seed & 3 seed\\[15bp]
-Qwen2.5 1.5B Instruct & 3 seed & 3 seed\\
+GePpeTto & 3 seed & 3 seed\\
 \bottomrule
 \end{tabularx}
 
 \begin{center}
-\fontsize{28bp}{34bp}\selectfont\textbf{3 modelli, 2 condizioni, 3 seed: 18 training}
+\fontsize{28bp}{34bp}\selectfont\textbf{18 training: 12 encoder e 6 GePpeTto}
 \end{center}
 
 \begin{slideitems}
 \item \textbf{Scarto appaiato per seed:} punteggio con input minuscolo meno punteggio originale.
-\item \textbf{Media e deviazione standard campionaria} delle metriche e degli scarti.
+\item \textbf{Media e deviazione standard campionaria} delle metriche e degli scarti per tutti i modelli.
 \end{slideitems}
 \end{slidebody}
 \source{La CRF resta un approfondimento opzionale. Non compare nei run del piano principale.}
@@ -287,7 +288,7 @@ Ogni sistema viene valutato sulle \textbf{stesse parole}, con accuracy, macro-F1
 \begin{slideitems}
 \item \textbf{Per categoria:} precision, recall, F1 e supporto, per leggere le differenze sulle classi rare.
 \item \textbf{Confusioni ed esempi contestuali:} nomi comuni e propri, ambiguità verbali e parole poco frequenti.
-\item \textbf{Output Qwen non valido:} JSON errato, numero di tag diverso o etichette sconosciute rendono errata l'intera frase. Ogni parola resta nel denominatore.
+\item \textbf{Output GePpeTto non valido:} ID fuori inventario, conteggio errato o EOS mancante rendono errata l'intera frase. Ogni parola resta nel denominatore.
 \end{slideitems}
 \smallbody
 Il \textbf{tasso di risposte non valide} è il numero di frasi con output non valido diviso il totale delle frasi. Si riporta insieme alle metriche linguistiche.
@@ -298,11 +299,11 @@ Il \textbf{tasso di risposte non valide} è il numero di frasi con output non va
 \begin{frame}[plain]
 \slidetitle{Risultati e limiti del confronto}
 \begin{slidebody}
-\textbf{Il nuovo piano non è ancora stato addestrato.} I punteggi del progetto NLP descrivono checkpoint e allineamento diversi e non sono risultati di questi esperimenti.
+\textbf{Il confronto finale è in corso.} I punteggi del progetto NLP descrivono checkpoint e allineamento diversi e non sono risultati di questi esperimenti.
 \begin{slideitems}
 \item \textbf{Confronto da produrre:} prestazioni UPOS, variazione dovuta alle maiuscole, errori e costo computazionale misurato.
-\item \textbf{Interpretazione:} cambiano pretraining, tokenizer, dimensione, obiettivo e metodo di adattamento. Gli scarti confrontano sistemi completi.
-\item \textbf{Ambito:} un corpus italiano, segmentazione gold e tre seed. Il testo grezzo e altri domini richiedono ulteriori verifiche.
+\item \textbf{Interpretazione:} cambiano pretraining, tokenizer e architettura. Le impostazioni comuni non isolano causalmente una singola differenza.
+\item \textbf{Ambito:} un corpus italiano, segmentazione gold e tre seed. Tutti i modelli usano dieci epoche e fine-tuning completo.
 \end{slideitems}
 \smallbody
 La CRF e l'estensione FEATS restano possibili sviluppi successivi al confronto principale.
@@ -321,12 +322,13 @@ La CRF e l'estensione FEATS restano possibili sviluppi successivi al confronto p
 \href{https://huggingface.co/dbmdz/electra-base-italian-xxl-cased-discriminator}{\modelid{dbmdz/electra-base-italian-xxl-cased-discriminator}}
 
 \textbf{Generativo}\\
-\href{https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct}{\modelid{Qwen/Qwen2.5-1.5B-Instruct}}
+\href{https://huggingface.co/LorenzoDeMattei/GePpeTto}{\modelid{LorenzoDeMattei/GePpeTto}}
 
 \textbf{Pretraining}\\
 Devlin et al., \emph{BERT}, NAACL 2019.\\
 Clark et al., \emph{ELECTRA}, ICLR 2020.\\
-Qwen Team, \emph{Qwen2.5 Technical Report}, 2024.
+De Mattei et al., \emph{GePpeTto Carves Italian into a Language Model}, 2020.\\
+Radford et al., \emph{GPT-2}, 2019.
 \end{slidebody}
 \source{Revisioni e parametri nel notebook. Impostazioni salvate per ogni esecuzione.}
 \end{frame}
@@ -335,12 +337,11 @@ Qwen Team, \emph{Qwen2.5 Technical Report}, 2024.
 \slidetitle{Fonti dei metodi}
 \begin{slidebody}[96]
 \smallbody
-\textbf{Adattamento efficiente}\\
-Hu et al., \href{https://arxiv.org/abs/2106.09685}{\emph{LoRA: Low-Rank Adaptation of Large Language Models}}, 2021.\\[8bp]
-Dettmers et al., \href{https://arxiv.org/abs/2305.14314}{\emph{QLoRA: Efficient Finetuning of Quantized LLMs}}, 2023.
+\textbf{Ottimizzazione}\\
+Loshchilov e Hutter, \href{https://arxiv.org/abs/1711.05101}{\emph{Decoupled Weight Decay Regularization}}, ICLR 2019.
 
 \textbf{Implementazione}\\
-Hugging Face, \href{https://huggingface.co/docs/transformers/tasks/token_classification}{\emph{Token Classification}} e \href{https://huggingface.co/docs/peft/developer_guides/quantization}{\emph{PEFT Quantization}}.\\[8bp]
+Hugging Face, \href{https://huggingface.co/docs/transformers/tasks/token_classification}{\emph{Token Classification}} e \href{https://huggingface.co/docs/transformers/model_doc/gpt2}{\emph{GPT-2}}.\\[8bp]
 PyTorch, \href{https://docs.pytorch.org/docs/stable/generated/torch.nn.CrossEntropyLoss.html}{\emph{CrossEntropyLoss}}.
 
 \textbf{Valutazione}\\

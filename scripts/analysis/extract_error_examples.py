@@ -37,14 +37,15 @@ def read_predictions(path):
 
 
 def extract(runs, limit):
-    paths = sorted(runs.glob("*/*/seed_*/predictions.csv"))
+    paths = sorted(path for model in ("bert", "electra", "geppetto")
+                   for path in (runs / model).glob("*/seed_*/predictions.csv"))
     if not paths:
         raise ValueError(f"No saved predictions in {runs}; run the notebook experiments first")
     reference, confusions, examples, sources = None, [], [], []
     for path in paths:
         model, variant, seed_directory, _ = path.relative_to(runs).parts
         seed = int(seed_directory.removeprefix("seed_"))
-        if model not in {"bert", "electra", "qwen"} or variant not in {"original", "lowercase"}:
+        if model not in {"bert", "electra", "geppetto"} or variant not in {"original", "lowercase"}:
             raise ValueError(f"Unknown model or variant: {path}")
         rows = read_predictions(path)
         signature = [tuple(row[key] for key in KEYS) for row in rows]
