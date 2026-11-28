@@ -9,7 +9,7 @@
 \usepackage{graphicx,placeins,float}
 \usepackage{xltabular}
 \usepackage{xurl,hyperref}
-\hypersetup{colorlinks=true,linkcolor=black,citecolor=black,urlcolor=blue!60!black}
+\hypersetup{pdfauthor={Pierre Errico, Simone Samoggia, Alice Benatti, Tommaso Quintavalli},colorlinks=true,linkcolor=black,citecolor=black,urlcolor=blue!60!black}
 \setlength{\parskip}{0.25em}
 \setlength{\parindent}{1em}
 \emergencystretch=2em
@@ -31,9 +31,14 @@
         \vspace{0.4cm}
         {\large Valutazione, fine-tuning e studio di ablation\par}
         \vspace{1.5cm}
-        {\large\textbf{Studente:} Pierre Errico\par}
-        \vspace{0.5cm}
-        {\large\textbf{Matricola:} 0001235580\par}
+        {\large
+        \begin{tabular}{@{}lr@{}}
+            \textbf{Studenti} & \textbf{Matricola}\\[0.2cm]
+            Pierre Errico & 0001235580\\
+            Simone Samoggia & 1243093\\
+            Alice Benatti & 1241469\\
+            Tommaso Quintavalli & 1235488
+        \end{tabular}\par}
     \end{center}
     \vfill
     \noindent\rule{\linewidth}{0.4pt}
@@ -198,43 +203,38 @@ Ha pronunciato \textbf{xfgh}. &
 \end{xltabular}
 \endgroup
 
-A titolo di esempio, si consideri la frase «\emph{Il gatto dorme.}». Nell'ambito del PoS tagging, ai quattro token viene assegnata rispettivamente la sequenza di etichette \texttt{DET NOUN VERB PUNCT}. A queste annotazioni si aggiungono, quando applicabili, le informazioni morfologiche rappresentate nel campo \texttt{FEATS}. Il token «\emph{gatto}», ad esempio, è classificato come \texttt{NOUN} e presenta gli attributi \texttt{Gender=Masc|Number=Sing}, che ne specificano il genere maschile e il numero singolare.
-
-Nel presente progetto il compito principale è la predizione dei tag UPOS; la seconda fase aggiunge la predizione del campo \texttt{FEATS}. Le annotazioni morfologiche costituiscono target supervisionati, mentre l'input dei modelli rimane la sequenza delle parole gold.
+A titolo di esempio, si consideri la frase «\emph{Il gatto dorme.}». Nell'ambito del PoS tagging, ai quattro token viene assegnata rispettivamente la sequenza di etichette \texttt{DET NOUN VERB PUNCT}. A queste annotazioni si aggiungono, quando applicabili, le informazioni morfologiche rappresentate nel campo \texttt{FEATS}. Per il token «\emph{gatto}» la classificazione è \texttt{NOUN}, con gli attributi \texttt{Gender=Masc|Number=Sing} che ne specificano il genere maschile e il numero singolare.
 
 \section{Le principali sfide del PoS tagging}
 \label{sec:pos-tagging-challenges}
-Una delle principali difficoltà del PoS tagging è rappresentata dall'ambiguità grammaticale: una stessa parola può appartenere a più categorie, e la scelta del tag corretto dipende dal contesto~\cite{manning2011}. Ad esempio, la parola \emph{porta} può essere un nome («\emph{La porta è chiusa.}») o un verbo («\emph{Lui porta il libro.}»).
-
-Un altro problema risiede nello sbilanciamento della distribuzione dei tag: alcune categorie, come nomi comuni (\texttt{NOUN}), determinanti (\texttt{DET}) e adposizioni (\texttt{ADP}), sono molto frequenti, mentre altre, come simboli (\texttt{SYM}) ed elementi non classificabili nelle altre categorie (\texttt{X}), compaiono raramente~\cite{isdt}. La presenza di classi con pochi esempi può rendere più difficile l'apprendimento di modelli robusti e generalizzabili~\cite{he2009}.
-
-A ciò si aggiungono ulteriori problematiche:
-
+Come qualsiasi compito di classificazione, il PoS tagging presenta alcune difficoltà:
 \begin{itemize}
-    \item la presenza di parole rare o non osservate durante l'addestramento, tra cui neologismi, termini specialistici e nomi propri, che possono risultare difficili da classificare. Alcune di queste possono inoltre essere assenti dal vocabolario del modello (Out-of-Vocabulary, OOV)~\cite{plank2016};
-    \item le differenze tra il dominio dei testi di addestramento e quello dei testi da analizzare, che possono ridurre la capacità di generalizzazione del modello~\cite{manning2011};
-    \item la predizione degli attributi morfologici del campo \texttt{FEATS}, che introduce ulteriori difficoltà dovute alla presenza di attributi applicabili soltanto a determinate categorie grammaticali e alla distribuzione sbilanciata dei relativi valori;
-    \item gli eventuali errori o incoerenze nelle annotazioni, che possono influenzare sia l'apprendimento sia la valutazione~\cite{manning2011}.
+    \item \textbf{Ambiguità grammaticale.} Una stessa parola può appartenere a più categorie, e la scelta del tag corretto dipende dal contesto~\cite{manning2011}. Ad esempio, la parola \emph{porta} può essere un nome («\emph{La porta è chiusa.}») o un verbo («\emph{Lui porta il libro.}»).
+    \item \textbf{Sbilanciamento dei tag.} Alcune categorie, come nomi comuni (\texttt{NOUN}), determinanti (\texttt{DET}) e adposizioni (\texttt{ADP}), sono molto frequenti, mentre altre, come simboli (\texttt{SYM}) ed elementi non classificabili nelle altre categorie (\texttt{X}), compaiono raramente~\cite{isdt}. La presenza di classi con pochi esempi può rendere più difficile l'apprendimento di modelli robusti e generalizzabili~\cite{he2009}.
+    \item \textbf{Parole rare o non osservate.} Neologismi, termini specialistici, nomi propri e altre parole rare o non osservate durante l'addestramento possono risultare difficili da classificare. Alcune di queste possono inoltre essere assenti dal vocabolario del modello (Out-of-Vocabulary, OOV)~\cite{plank2016}.
+    \item \textbf{Differenze di dominio.} Le differenze tra il dominio dei testi di addestramento e quello dei testi da analizzare possono ridurre la capacità di generalizzazione del modello~\cite{manning2011}.
+    \item \textbf{Predizione morfologica.} La predizione degli attributi del campo \texttt{FEATS} introduce ulteriori difficoltà dovute alla presenza di attributi applicabili soltanto a determinate categorie grammaticali e alla distribuzione sbilanciata dei relativi valori.
+    \item \textbf{Errori e incoerenze nelle annotazioni.} Possono influenzare sia l'apprendimento sia la valutazione~\cite{manning2011}.
 \end{itemize}
 
-Queste problematiche motivano l'impiego di modelli capaci di costruire rappresentazioni linguistiche sensibili al contesto e di sfruttare conoscenze acquisite attraverso il preaddestramento su grandi quantità di dati testuali~\cite{devlin2019}.
+Queste problematiche motivano l'impiego di modelli neurali per costruire rappresentazioni lessicali. Modelli come Word2Vec apprendono vettori densi delle parole a partire dai loro contesti di occorrenza attraverso due architetture principali: Continuous Bag-of-Words (CBOW), che predice una parola a partire dalle parole del contesto, e Skip-gram, che predice le parole del contesto a partire da una parola bersaglio~\cite{mikolov2013efficient}. Le rappresentazioni così prodotte sono tuttavia statiche, i.e. a ogni parola del vocabolario viene associato lo stesso vettore indipendentemente dalla frase in cui compare~\cite{mikolov2013,goldberg2016}.
+
+RNN, LSTM e BiLSTM costruiscono invece rappresentazioni contestuali elaborando i token in sequenza~\cite{goldberg2016,plank2016}. La loro dipendenza sequenziale limita la parallelizzazione all'interno di una frase. Il Transformer sostituisce la ricorrenza con la self-attention, permettendo di elaborare in parallelo le posizioni durante l'addestramento e di modellare direttamente relazioni tra token anche distanti~\cite{vaswani2017}.
 
 \section{Architettura BERT}
 \label{sec:bert-architecture}
-
-Le rappresentazioni lessicali statiche, come Word2Vec, associano a ogni parola un vettore indipendente dal contesto; RNN, LSTM e BiLSTM costruiscono invece rappresentazioni contestuali elaborando i token in sequenza~\cite{mikolov2013,goldberg2016,plank2016}. Il Transformer sostituisce la ricorrenza con la self-attention, modellando direttamente le relazioni tra posizioni anche distanti e favorendo la parallelizzazione~\cite{vaswani2017}.
 
 Tra i modelli basati sull'architettura Transformer, Bidirectional Encoder Representations from Transformers (BERT)~\cite{devlin2019} sfrutta un Transformer Encoder-only bidirezionale per produrre rappresentazioni contestuali dei token, risultando particolarmente adatto a compiti come il PoS tagging, nei quali la classificazione grammaticale dipende dal contesto frasale.
 
 \subsection{Tokenizzazione}
 \label{subsec:tokenization}
 
-L'input dell'encoder di BERT è costituito da token prodotti da WordPiece, un metodo di tokenizzazione che mantiene le parole intere oppure le suddivide in frammenti più piccoli (i.e. \textit{subword}), selezionati da un vocabolario predefinito. Ad esempio, il tokenizer associato al modello \texttt{dbmdz/bert-base-italian-xxl-cased} rappresenta \emph{bicicletta} con un singolo token, mentre suddivide \emph{casetta} in \texttt{case} e \texttt{\#\#tta} (il prefisso \texttt{\#\#} indica la continuazione della parola). Una parola assente dal training PoS può quindi essere rappresentata combinando subword già presenti nel vocabolario di BERT~\cite{devlin2019}.
+L'input dell'encoder di BERT è costituito da token prodotti da WordPiece, un metodo di tokenizzazione che mantiene le parole intere oppure le suddivide in frammenti più piccoli (i.e. \textit{subword}), selezionati da un vocabolario predefinito. Il modello utilizzato, \texttt{dbmdz/bert-base-italian-xxl-cased}, è nella variante \emph{cased} (i.e.  mantiene la distinzione tra lettere maiuscole e minuscole durante la tokenizzazione~\cite{bertxxl}). Ad esempio, il suo tokenizer rappresenta \emph{bicicletta} con un singolo token, mentre suddivide \emph{casetta} in \texttt{case} e \texttt{\#\#tta} (il prefisso \texttt{\#\#} indica la continuazione della parola). Una parola assente dal training PoS può quindi essere rappresentata combinando subword già presenti nel vocabolario di BERT~\cite{devlin2019}.
 
 \subsection{Struttura dell'encoder}
 \label{subsec:encoder-structure}
 
-Il modello \texttt{dbmdz/bert-base-italian-xxl-cased} adotta la configurazione BERT-Base, composta da 12 blocchi Transformer Encoder, 12 teste di attenzione per blocco e rappresentazioni vettoriali di dimensione 768~\cite{bertxxl}. Le rappresentazioni vettoriali dei token (i.e. \textit{token embeddings}) vengono sommate agli embedding posizionali e di segmento, che codificano rispettivamente la posizione nella sequenza e l'appartenenza ai segmenti di testo. Le rappresentazioni risultanti attraversano i 12 blocchi in successione~\cite{devlin2019}. La Figura~\ref{fig:bert-encoder-structure} riassume il flusso delle rappresentazioni e la struttura interna di ciascun blocco.
+Il modello \texttt{dbmdz/bert-base-italian-xxl-cased} adotta la configurazione BERT-Base, composta da 12 blocchi Transformer Encoder, 12 teste di attenzione per blocco e rappresentazioni vettoriali di dimensione 768~\cite{bertxxl}. Il backbone utilizzato conta circa 110 milioni di parametri. Le rappresentazioni vettoriali dei token (i.e. \textit{token embeddings}) vengono sommate agli embedding posizionali e di segmento, che codificano rispettivamente la posizione nella sequenza e l'appartenenza ai segmenti di testo. Le rappresentazioni risultanti attraversano i 12 blocchi in successione~\cite{devlin2019}. La Figura~\ref{fig:bert-encoder-structure} riassume il flusso delle rappresentazioni e la struttura interna di ciascun blocco.
 
 \begin{figure}[!htbp]
 \centering
@@ -253,12 +253,14 @@ Ogni blocco comprende una Multi-Head Self-Attention e una rete feed-forward. La 
     \right)V,
 \end{equation}
 
+\begin{samepage}
 dove $Q$, $K$ e $V$ sono matrici ottenute mediante proiezioni lineari apprese delle rappresentazioni in ingresso:
 \begin{itemize}
     \item \textbf{Query ($Q$):} rappresentano le informazioni ricercate dai token;
     \item \textbf{Key ($K$):} rappresentano le caratteristiche utilizzate per calcolare la compatibilità con le query;
     \item \textbf{Value ($V$):} contengono le informazioni da aggregare mediante i pesi di attenzione.
 \end{itemize}
+\end{samepage}
 
 Il prodotto $QK^{\mathsf T}$ determina i punteggi di compatibilità, scalati per $\sqrt{d_k}$, dove $d_k=768/12=64$ è la dimensionalità delle key per ciascuna testa. La softmax normalizza tali punteggi in pesi di attenzione, utilizzati per calcolare una combinazione pesata dei vettori value.
 
@@ -269,7 +271,7 @@ La rete feed-forward applica indipendentemente a ciascun token due trasformazion
 
 Nel BERT originale il preaddestramento combina il Masked Language Modeling (MLM) e la Next Sentence Prediction (NSP). Nel MLM viene selezionato casualmente il 15\% dei token della sequenza: di questi, l'80\% viene sostituito con il token speciale \texttt{[MASK]}, il 10\% con un token casuale e il restante 10\% rimane invariato. Il modello deve predire i token originali nelle posizioni selezionate, sfruttando il contesto bidirezionale. La NSP richiede invece di determinare se due segmenti di testo siano consecutivi nel corpus, mediante una classificazione binaria~\cite{devlin2019}.
 
-Attraverso il preaddestramento, BERT apprende rappresentazioni linguistiche contestuali da grandi quantità di testo, che possono successivamente essere adattate a diversi compiti supervisionati mediante fine-tuning. In particolare, il checkpoint adottato è stato preaddestrato su corpora italiani e mantiene la distinzione tra lettere maiuscole e minuscole durante la tokenizzazione~\cite{bertxxl}.
+Attraverso il preaddestramento, BERT apprende rappresentazioni linguistiche contestuali da grandi quantità di testo, che possono successivamente essere adattate a diversi compiti supervisionati mediante fine-tuning. Il checkpoint adottato è stato preaddestrato su corpora italiani~\cite{bertxxl}.
 
 \section{Architettura ELECTRA}
 \label{sec:electra-architecture}
@@ -279,14 +281,19 @@ ELECTRA è un modello basato su un Transformer Encoder bidirezionale, che produc
 \subsection{Tokenizzazione}
 \label{subsec:electra-tokenization}
 
-Il checkpoint \modelid{dbmdz/electra-base-italian-xxl-cased-discriminator} utilizza una tokenizzazione WordPiece, mantenendo le parole intere oppure suddividendole in subword. La variante \emph{cased} conserva la distinzione tra lettere maiuscole e minuscole~\cite{electramodel}. La segmentazione in subword richiede di ricondurre le rappresentazioni dei token alle parole annotate nel corpus, come avviene per BERT; il metodo adottato nel progetto è descritto nella Sezione~\ref{sec:pooling}.
+Il checkpoint \modelid{dbmdz/electra-base-italian-xxl-cased-discriminator} impiega WordPiece nella variante \emph{cased}, come BERT (Sezione~\ref{subsec:tokenization})~\cite{electramodel}.
 
 \subsection{Struttura dell'encoder}
 \label{subsec:electra-encoder-structure}
 
-Il discriminatore italiano adotta una configurazione con 12 blocchi Transformer Encoder, 12 teste di attenzione per blocco e rappresentazioni di dimensione 768~\cite{electramodel}. Gli embedding dei token sono combinati con quelli posizionali e di segmento; ciascun blocco comprende self-attention bidirezionale, rete feed-forward, connessioni residue e normalizzazione, secondo la struttura illustrata per BERT nella Figura~\ref{fig:bert-encoder-structure}~\cite{electra2020}.
+Il discriminatore adotta la configurazione BERT-Base descritta nella Sezione~\ref{subsec:encoder-structure}, ripresa nello schema della Figura~\ref{fig:electra-encoder-structure}, con un backbone che conta circa 109 milioni di parametri~\cite{electramodel}; per il PoS tagging, la testa binaria di preaddestramento viene sostituita da una testa di classificazione UPOS.
 
-L'encoder restituisce un vettore contestuale per ciascuna subword. La testa utilizzata nel preaddestramento effettua una classificazione binaria per posizione; per il PoS tagging viene sostituita da una testa supervisionata che predice le categorie UPOS. L'encoder mantiene quindi la capacità di rappresentare il contesto, mentre cambia il compito richiesto al classificatore.
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{figures/electra_encoder_structure.pdf}
+\caption{Schema dell'encoder del discriminatore ELECTRA, con dodici blocchi bidirezionali e rappresentazioni di 768 componenti; il dettaglio dei blocchi esplicita le connessioni residue e la normalizzazione applicata dopo ogni sottoblocco, secondo la struttura condivisa con BERT~\cite{electra2020,electramodel}.}
+\label{fig:electra-encoder-structure}
+\end{figure}
 
 \subsection{Preaddestramento}
 \label{subsec:electra-pretraining}
@@ -298,52 +305,59 @@ L'obiettivo del discriminatore utilizza tutte le posizioni della sequenza, anzic
 \section{Architettura GePpeTto}
 \label{sec:geppetto-architecture}
 
-GePpeTto è un modello linguistico autoregressivo italiano basato sull'architettura GPT-2. Il Transformer Decoder applica un vincolo causale: ogni posizione può utilizzare soltanto i token precedenti e quello corrente~\cite{geppetto2020,gpt22019}. Nel progetto il backbone viene adattato alla classificazione UPOS per parola, mantenendo questo vincolo di attenzione.
+GePpeTto è un modello linguistico italiano autoregressivo (i.e. predice il token successivo a partire dai token già osservati), basato sull'architettura GPT-2. Il Transformer Decoder applica un vincolo causale: ogni posizione può utilizzare soltanto i token precedenti e quello corrente~\cite{geppetto2020,gpt22019}. Nel progetto il backbone viene adattato alla classificazione UPOS per parola, mantenendo questo vincolo di attenzione.
 
 \subsection{Tokenizzazione}
 \label{subsec:geppetto-tokenization}
 
-Il tokenizer byte-level BPE utilizza un vocabolario di 30\,000 token e conserva la distinzione tra maiuscole e minuscole~\cite{geppettomodel,hfgpt2}. Una parola può essere suddivisa in più token, che non coincidono necessariamente con le parole annotate nel corpus.
+Il \emph{Byte-Pair Encoding} (BPE) costruisce un vocabolario di subword a partire da unità elementari. In fase di apprendimento fonde iterativamente la coppia di simboli adiacenti più frequente nel corpus, mentre in fase di tokenizzazione applica al nuovo testo le fusioni apprese~\cite{sennrich2016}. L'approccio è concettualmente simile a WordPiece, ma in BPE è assente un criterio di verosimiglianza nella scelta delle nuove unità~\cite{wu2016gnmt}.
 
-Il tokenizer fast conserva l'associazione tra subword e parole gold. Le rappresentazioni appartenenti alla stessa parola vengono aggregate con il mean pooling della Sezione~\ref{sec:pooling}; la testa del task predice direttamente una delle diciassette categorie.
+GePpeTto adotta la variante \emph{byte-level} di BPE, in cui le unità iniziali sono i byte della codifica del testo, anziché i caratteri. Questo permette di rappresentare anche parole non osservate come sequenze di token più piccoli~\cite{gpt22019,hfgpt2}. Il vocabolario comprende 30\,000 token e la tokenizzazione conserva la distinzione tra maiuscole e minuscole~\cite{geppettomodel}.
 
 \subsection{Struttura del decoder}
 \label{subsec:geppetto-decoder-structure}
 
-GePpeTto adotta dodici blocchi Transformer Decoder, dodici teste di attenzione e rappresentazioni di dimensione 768~\cite{geppettomodel,gpt22019}. Il modello ha circa 109 milioni di parametri, una dimensione confrontabile con quella degli encoder italiani. Il contesto nativo comprende al massimo 1\,024 posizioni.
+GePpeTto adotta dodici blocchi Transformer Decoder, dodici teste di attenzione e rappresentazioni di dimensione 768~\cite{geppettomodel,gpt22019}. Il backbone utilizzato conta circa 109 milioni di parametri, una dimensione confrontabile con quella degli encoder italiani. Il contesto nativo comprende al massimo 1\,024 posizioni.
 
-Ogni blocco combina attenzione causale, una rete feed-forward con attivazione GELU, connessioni residue e LayerNorm applicata prima dei sottoblocchi. Gli embedding posizionali sono appresi e una normalizzazione finale produce gli stati del backbone~\cite{gpt22019,hfgpt2}. Il calcolo dell'attenzione segue il principio dell'Equazione~\ref{eq:scaled-dot-product-attention}, mascherando le posizioni successive al token considerato.
+Come illustrato nella Figura~\ref{fig:geppetto-decoder-structure}, ogni blocco combina attenzione causale, una rete feed-forward con attivazione GELU, connessioni residue e LayerNorm applicata prima dei sottoblocchi; gli embedding posizionali sono appresi e una normalizzazione finale produce gli stati del backbone~\cite{gpt22019,hfgpt2}. Il calcolo dell'attenzione segue il principio dell'Equazione~\ref{eq:scaled-dot-product-attention}, mascherando le posizioni successive al token considerato.
 
-Nel PoS tagging le rappresentazioni di una parola possono utilizzare il contesto precedente e, attraverso il pooling, i suoi diversi frammenti. Il vincolo causale impedisce però di usare le parole successive. Il classificatore riceve quindi informazioni contestuali diverse da quelle disponibili agli encoder bidirezionali, anche con lo stesso pooling.
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{figures/geppetto_decoder_structure.pdf}
+\caption{Schema del decoder di GePpeTto, che applica attenzione causale e LayerNorm prima dei sottoblocchi, mentre una normalizzazione finale conclude la pila dei dodici blocchi; i vettori hanno 768 componenti e le connessioni residue conservano il percorso diretto dell'informazione~\cite{gpt22019,geppettomodel}.}
+\label{fig:geppetto-decoder-structure}
+\end{figure}
+
+\begin{samepage}
+Le rappresentazioni del decoder dipendono dal token corrente e dal prefisso che lo precede. BERT ed ELECTRA possono invece utilizzare entrambi i lati del contesto.
 
 \subsection{Preaddestramento}
 \label{subsec:geppetto-pretraining}
 
-GePpeTto è stato preaddestrato sull'italiano con l'obiettivo di predire il token successivo. Il corpus combina circa 2,8 GB di Wikipedia italiana e 11 GB di testi web ItWac~\cite{geppetto2020,geppettomodel}. La model card riporta blocchi di 100 token nel preaddestramento, distinti dal limite architetturale di 1\,024 posizioni: l'impiego di sequenze più lunghe nel task viene verificato durante il fine-tuning e la valutazione. Nel progetto il backbone viene specializzato mediante fine-tuning completo e una testa supervisionata UPOS. L'adattamento della classe di token classification è descritto nella Sezione~\ref{sec:geppetto-classification}.
+GePpeTto è stato preaddestrato sull'italiano con l'obiettivo di predire il token successivo. Il corpus combina circa 2,8 GB di Wikipedia italiana e 11 GB di testi web ItWac~\cite{geppetto2020,geppettomodel}.\par
+\end{samepage}
 
 \section{Obiettivi del progetto}
 L'obiettivo è confrontare tre checkpoint preaddestrati distinti sullo stesso compito e sullo stesso corpus, con mean pooling e classificazione UPOS per parola comuni. La domanda riguarda la correttezza e gli errori dei sistemi ottenuti con il protocollo adottato, insieme al costo dell'adattamento e dell'inferenza. Le differenze di preaddestramento e di contesto causale o bidirezionale rimangono proprietà dei modelli confrontati.
 
-Un secondo obiettivo è studiare il contributo dell'informazione sulle maiuscole. L'ablation confronta, per ogni modello, una configurazione addestrata sul testo originale e una addestrata sul testo minuscolo. La stessa trasformazione si applica ai dati di selezione e di valutazione, conservando parole, ordine e categorie gold.
+Un secondo obiettivo è studiare il contributo dell'informazione sulle maiuscole e della supervisione morfologica FEATS attraverso due ablation separate. La prima confronta, per ogni modello, una configurazione addestrata sul testo originale e una addestrata sul testo minuscolo. La stessa trasformazione si applica ai dati di selezione e di valutazione, conservando parole, ordine e categorie \emph{gold} (i.e. le annotazioni di riferimento fornite dal corpus, rispetto alle quali si valutano le predizioni).
 
-L'esperimento congiunto costituisce uno studio separato, limitato al testo originale: UPOS e UPOS + FEATS partono dallo stesso checkpoint preaddestrato, mantenendo modello, dati, seed, dieci epoche e criterio di selezione. La configurazione congiunta aggiunge quattordici teste e la supervisione morfologica. Si studiano le prestazioni FEATS e le differenze UPOS fra i due training indipendenti; non si ripete l'ablation delle maiuscole.
+La seconda ablation valuta l'effetto della supervisione morfologica sul compito UPOS ed è limitata al testo originale: UPOS e UPOS + FEATS partono dallo stesso checkpoint preaddestrato, mantenendo modello, dati, seed, dieci epoche e criterio di selezione. La configurazione congiunta aggiunge quattordici teste e la supervisione morfologica. Si studiano quindi le prestazioni FEATS e le differenze UPOS fra i due training indipendenti.
 
-\chapter{Task, dati e metriche}
-\label{chap:data-metrics}
+\chapter{Metodologia}
+\label{chap:methodology}
 \section{Definizione del task}
-Ogni esempio è una frase $x=(w_1,\ldots,w_n)$ con una sequenza di etichette gold $y=(y_1,\ldots,y_n)$, dove $y_i$ appartiene all'inventario UPOS $C$. Il sistema deve restituire esattamente un'etichetta per ciascuna parola e nello stesso ordine. Non si richiede di ricostruire le parole né di identificare confini di frase.
+Ogni esempio è una frase $x=(w_1,\ldots,w_n)$ con una sequenza di etichette gold $y=(y_1,\ldots,y_n)$, dove $y_i$ appartiene all'inventario UPOS $C$. Il sistema deve restituire esattamente un'etichetta per ciascuna parola e nello stesso ordine.
 
 Nella seconda fase ogni parola possiede anche un dizionario di caratteristiche FEATS, che può essere vuoto. Il modello predice un valore o l'assenza per ciascun attributo appreso dal training, mantenendo una sola decisione UPOS per parola.
 
-Questa impostazione assume una segmentazione gold. Le prestazioni descrivono l'etichettatura di parole già individuate e non un sistema completo a partire da testo grezzo. Nei file CoNLL-U si considerano le parole sintattiche con identificativo intero, distinguendole dalle righe relative a token multiparola e nodi vuoti~\cite{conllu}.
-
 \section{Corpus e provenienza dei dati}
 \label{sec:data-provenance}
-Il corpus è UD Italian-ISDT, release 2.15~\cite{isdt}. Per il progetto AI la fonte di caricamento è la distribuzione Hugging Face \modelid{universal-dependencies/universal_dependencies}, configurazione \texttt{it\_isdt}~\cite{hfdata}. Si fissa il tag \path{ud2.15-loader-v2.3.0} alla revisione immutabile \path{8426077f2e778f20d46a5b89a187e4f991cfe6c4}, con dati Parquet e categorie UPOS rappresentate come stringhe. Il numero di versione del loader, 2.3.0, è distinto dalla release 2.15 delle annotazioni.
+Il corpus di riferimento è UD Italian-ISDT, release 2.15~\cite{isdt}. La repository ufficiale \modelid{UniversalDependencies/UD_Italian-ISDT} su GitHub distribuisce le annotazioni originali in file CoNLL-U (i.e. file di testo tabulari che associano parole e annotazioni linguistiche)~\cite{conllu}.
 
-Si mantengono gli split ufficiali: training per l'aggiornamento dei parametri, development per la selezione e test per la valutazione finale. Al caricamento si controllano la corrispondenza tra parole ed etichette, l'ordine delle frasi e la provenienza. Un hash della rappresentazione canonica di ciascuno split permette di individuare modifiche ai dati; le due condizioni dell'ablation condividono la stessa sequenza di etichette gold.
+Per gli esperimenti si carica la distribuzione dello stesso corpus su Hugging Face (HF), in file Parquet (i.e. file binari tabulari organizzati per colonne), con una frase per riga~\cite{hfdata}. La corrispondenza con i file CoNLL-U originali è stata verificata sui tre split, confrontando frasi, parole, etichette UPOS e annotazioni FEATS. Nei CoNLL-U usati per questo confronto si considerano le parole sintattiche con identificativo intero, escludendo le righe relative a token multiparola e nodi vuoti.
 
-La distribuzione Hugging Face è stata confrontata con i file CoNLL-U di ISDT 2.15: frasi, parole, etichette UPOS e ordine coincidono in tutti e tre gli split. La Tabella~\ref{tab:data} ne riporta i conteggi verificati. La preparazione dei dati controlla l'allineamento e registra hash e conteggi nel manifest generato automaticamente.
+Si mantengono gli split ufficiali: training per l'aggiornamento dei parametri, development per la selezione e test per la valutazione finale. La Tabella~\ref{tab:data} ne riporta i conteggi. Al caricamento si controllano la corrispondenza tra parole ed etichette, l'ordine delle frasi e la provenienza. Un hash della rappresentazione canonica di ciascuno split permette di individuare modifiche ai dati; le due condizioni dell'ablation condividono la stessa sequenza di etichette gold.
 
 \begin{table}[!htbp]
 \centering
@@ -360,28 +374,23 @@ Test & 482 & 10\,417 & 15\\
 \label{tab:data}
 \end{table}
 
-Il caricamento richiede la revisione fissata. In assenza della risorsa attesa, l'esecuzione deve interrompersi, senza sostituire silenziosamente il corpus con una release diversa o con un'altra fonte. I conteggi e gli hash della preparazione vengono conservati nel manifest del nuovo progetto.
-
-Gli inventari delle classi vengono costruiti dal training. Il development e il test non contribuiscono alla scelta delle categorie disponibili al classificatore. Il campo \texttt{FEATS}, i lemmi e le dipendenze non sono forniti ai modelli come input, poiché contengono annotazioni ulteriori rispetto alle parole da classificare.
-
 \subsection{Rappresentazione delle caratteristiche morfologiche}
 \label{sec:feats-representation}
 Il training contiene quattordici attributi FEATS e quaranta coppie attributo-valore: \texttt{Clitic}, \texttt{Definite}, \texttt{Degree}, \texttt{Foreign}, \texttt{Gender}, \texttt{Mood}, \texttt{NumType}, \texttt{Number}, \texttt{Person}, \texttt{Polarity}, \texttt{Poss}, \texttt{PronType}, \texttt{Tense} e \texttt{VerbForm}. Per ogni attributo si costruisce un inventario multiclasse con \texttt{<NONE>} all'indice zero, seguito dai valori osservati nel training. Questa classe rappresenta l'attributo assente, anche quando non applicabile alla parola. Eventuali valori multipli vengono ordinati e conservati come un'unica etichetta composta~\cite{conllu}.
 
-La colonna \texttt{feats} dei Parquet contiene una stringa CoNLL-U per parola, come \texttt{Gender=Fem|Number=Sing}, oppure un valore nullo. L'estensione legge queste annotazioni dalla stessa revisione fissata del corpus e le aggiunge in memoria dopo aver verificato parole, UPOS e ordine contro i dati preparati. I file e gli hash della prima fase restano invariati. Un confronto completo con i CoNLL-U ISDT 2.15 verifica anche l'identità delle annotazioni FEATS nei tre split.
+Nei file Parquet, la colonna \texttt{feats} contiene, per ciascuna parola della frase, una stringa nel formato del campo \texttt{FEATS} di CoNLL-U, come \texttt{Gender=Fem|Number=Sing}, oppure un valore nullo. Le annotazioni vengono lette dalla stessa revisione fissata del corpus e aggiunte in memoria, dopo aver verificato parole, UPOS e ordine rispetto ai dati preparati.
 
-Il gold completo viene conservato per le metriche, comprese le coppie assenti dall'inventario di training. Il test contiene \texttt{Typo=Yes}, non appreso dalle teste disponibili; la relativa occorrenza viene quindi valutata senza eliminarla. Il development non contiene coppie sconosciute. La definizione degli inventari rimane indipendente dagli split di valutazione.
+Il gold completo viene conservato per le metriche, comprese le coppie assenti dall'inventario di training. Il test contiene \texttt{Typo=Yes}, non appreso dalle teste disponibili; la relativa occorrenza viene quindi valutata senza eliminarla.
 
 \section{Metriche di valutazione}
 \label{sec:metrics}
-Le metriche vengono definite in questa sezione prima di impiegarle nella selezione dei checkpoint e nell'interpretazione del confronto. Tutte le misure grammaticali sono calcolate sulle parole gold, con gli stessi inventari e le stesse convenzioni per i tre sistemi~\cite{sklearnmetrics}.
 
 \subsection{Accuracy}
 L'accuracy misura la frazione di parole con etichetta predetta uguale a quella di riferimento. Indicando con $N$ il numero totale di parole e con $\hat y_i$ la predizione, si definisce
 \begin{equation}
 \operatorname{Acc}=\frac{1}{N}\sum_{i=1}^{N}\mathbf{1}[\hat y_i=y_i].
 \end{equation}
-Ogni parola pesa allo stesso modo. Le classi frequenti contribuiscono quindi più delle classi rare al valore complessivo.
+Si noti che ogni parola pesa allo stesso modo, perciò le classi frequenti contribuiscono quindi più delle classi rare al valore complessivo.
 
 \subsection{Precision, recall e macro-F1}
 Per ogni categoria $k$, $TP_k$ conta le predizioni corrette della classe, $FP_k$ le parole predette come $k$ con gold diverso e $FN_k$ le parole con gold $k$ assegnate a un'altra classe. Precision e recall sono
@@ -398,7 +407,7 @@ Ogni rapporto con denominatore nullo viene posto a zero. La macro-F1 assegna lo 
 
 Si riportano due inventari per la media. La \emph{macro-F1 totale} utilizza tutti i diciassette tag UPOS; la \emph{macro-F1 sulle classi presenti} considera i tag con supporto gold positivo nello split valutato. Entrambe mantengono nei conteggi gli errori verso categorie diverse. Le classi assenti hanno F1 nullo nella media totale, anche se non vengono mai predette: con $m$ classi gold presenti su diciassette il massimo della media totale è pertanto $m/17$. Nel test verificato sono presenti quindici classi, per cui il massimo della macro-F1 totale è $15/17\simeq88{,}24\%$, mentre la media sulle classi presenti può raggiungere il 100\%.
 
-La macro-F1 totale UPOS sul development è la misura adottata per selezionare i checkpoint sia nel training UPOS sia in quello UPOS + FEATS. L'accuracy, la macro-F1 sulle classi presenti e le misure per categoria completano la valutazione finale. Le metriche FEATS non entrano nella selezione e le loss non sostituiscono il criterio comune.
+Al fine di selezionare i checkpoint sia nel training UPOS sia in quello UPOS + FEATS si usa la macro-F1 totale UPOS sul development.
 
 \subsection{Metriche FEATS}
 \label{sec:feats-metrics}
@@ -410,21 +419,20 @@ La misura comprende gli insiemi vuoti: nel test sono 4\,055 su 10\,417 parole. L
 
 La macro-F1 tratta ogni coppia attributo-valore, come \texttt{Gender=Fem}, come una classe e ne conta presenza gold, presenza predetta e intersezione sulle singole parole. Si esclude \texttt{<NONE>} dalla media. L'inventario totale comprende le quaranta coppie del training e le ulteriori coppie gold o predette; la versione sulle classi presenti considera solo le coppie con supporto gold positivo. Nel test risultano quarantuno coppie complessive e trentotto presenti, includendo \texttt{Typo=Yes}. Le classi sconosciute al modello restano nei conteggi degli errori.
 
-L'accuracy congiunta richiede che siano corretti sia UPOS sia l'intero dizionario FEATS della parola. Si conservano inoltre precision, recall, F1 e supporto per coppia, insieme alle accuracy e macro-F1 dei singoli attributi. L'accuracy per attributo e la macro-F1 delle coppie misurano aspetti diversi; la prima non viene denominata micro-F1 FEATS.
+L'accuracy congiunta richiede che siano corretti sia UPOS sia l'intero dizionario FEATS della parola. Si conservano inoltre precision, recall, F1 e supporto per coppia, insieme alle accuracy e macro-F1 dei singoli attributi.
 
 \subsection{Aggregazione e variazioni appaiate}
 Per ciascun modello e condizione si riportano media e deviazione standard campionaria sui seed 42, 123 e 456, conservando anche le singole misure~\cite{seeds}. L'effetto dell'ablation viene espresso in punti percentuali mediante
 \begin{equation}
 \Delta_{s}=100\bigl(M_{\mathrm{minuscolo},s}-M_{\mathrm{originale},s}\bigr),
 \end{equation}
-dove $M$ è una metrica in $[0,1]$. Un valore negativo segnala una riduzione dopo la rimozione delle maiuscole. Per tutti i modelli le differenze appaiate vengono riassunte con media e deviazione standard; tre seed descrivono solo parte della variabilità del training.
+dove $M$ è una metrica in $[0,1]$. Un valore negativo segnala una riduzione dopo la rimozione delle maiuscole.
 
 Le variazioni tra fase congiunta e fase UPOS vengono appaiate per modello e seed sul solo testo originale, e riportate separatamente dall'ablation delle maiuscole. Il verso della differenza è fase congiunta meno fase UPOS, in punti percentuali.
 
-\chapter{Modelli e funzioni obiettivo}
-\label{chap:models}
 \section{Scelta dei checkpoint}
-Il confronto usa tre checkpoint distinti, riassunti nella Tabella~\ref{tab:models}. La selezione privilegia modelli adattabili su una singola GPU e differenze che abbiano un significato per il task: due encoder italiani con diversa procedura di preaddestramento e un backbone causale italiano di dimensione confrontabile, tutti adattati alla classificazione per parola.
+\label{sec:checkpoints}
+Il confronto usa tre checkpoint distinti, riassunti nella Tabella~\ref{tab:models}. La selezione ha privilegiato modelli adattabili su una singola GPU e differenze che abbiano un significato per il task: due encoder italiani con diversa procedura di preaddestramento e un backbone causale italiano di dimensione confrontabile, tutti adattati alla classificazione per parola.
 
 \begin{table}[!htbp]
 \centering\small
@@ -442,7 +450,7 @@ GePpeTto & \modelid{LorenzoDeMattei/GePpeTto} & Fine-tuning del backbone causale
 \end{table}
 
 \subsection{BERT XXL italiano}
-Il checkpoint BERT XXL adotta la configurazione BERT-Base descritta nella Sezione~\ref{sec:bert-architecture}. La sigla XXL identifica la variante preaddestrata su un corpus italiano ampliato con OSCAR, per circa 81 GB di testo secondo gli autori; non indica un encoder con molti più strati~\cite{bertxxl}. Il modello mantiene la distinzione tra maiuscole e minuscole e permette di studiare l'effetto della loro rimozione.
+Il checkpoint BERT XXL adotta la configurazione BERT-Base descritta nella Sezione~\ref{sec:bert-architecture}. La sigla XXL identifica la variante preaddestrata su un corpus italiano ampliato con la componente italiana di OSCAR (i.e. una raccolta multilingue di testi web non annotati, suddivisi per lingua)~\cite{oscar}, per circa 81 GB di testo secondo gli autori; a differenza di quanto il nome possa suggerire, non indica un encoder con più strati~\cite{bertxxl}.
 
 \subsection{ELECTRA XXL italiano}
 Si utilizza il checkpoint italiano del discriminatore descritto nella Sezione~\ref{sec:electra-architecture}, sostituendo la testa di preaddestramento con il classificatore UPOS~\cite{electramodel}.
@@ -454,29 +462,20 @@ Il corpus italiano XXL e la forma dell'output per parola rendono ELECTRA un conf
 
 Si utilizza \modelid{LorenzoDeMattei/GePpeTto}, alla revisione immutabile \path{d4b79e7cb2b41925adf2837a7715243f56eaf705}. Il preaddestramento italiano, una dimensione confrontabile con quella degli encoder e l'attenzione causale motivano la scelta~\cite{geppetto2020,geppettomodel}. Tutti i parametri vengono aggiornati con gli stessi iperparametri di training degli altri due classificatori.
 
-L'input è la sequenza delle parole gold della frase. Il modello restituisce uno score per ogni coppia parola--categoria; la predizione seleziona una delle diciassette classi. L'allineamento tra parole e subword segue la stessa procedura adottata per BERT ed ELECTRA.
+L'input è la sequenza delle parole gold della frase (i.e. le unità già individuate nel corpus). Il modello restituisce uno score per ogni coppia parola--categoria; la predizione seleziona una delle diciassette classi. L'allineamento tra parole e subword segue la stessa procedura adottata per BERT ed ELECTRA.
 
 \section{Allineamento e mean pooling}
 \label{sec:pooling}
-I tokenizer dei tre modelli suddividono alcune parole in più subword. Il task possiede però una sola etichetta per parola. Il tokenizer fast restituisce mediante \texttt{word\_ids} l'associazione tra ogni subword e la parola di origine~\cite{hfclassification}. Tale associazione viene conservata per tutte le subword e verificata prima del training.
+La tokenizzazione può suddividere una parola in più subword, mentre le annotazioni UPOS e FEATS restano associate alla parola intera; per mantenere questa corrispondenza, ogni frammento viene ricondotto alla parola di origine e le rappresentazioni dei frammenti vengono aggregate mediante mean pooling~\cite{acs2021}.
 
 Indicando con $S_i$ l'insieme delle posizioni associate alla parola $w_i$ e con $h_j\in\mathbb{R}^{d}$ il vettore finale del backbone alla posizione $j$, la rappresentazione della parola è
 \begin{equation}
 \label{eq:meanpool}
 z_i=\frac{1}{|S_i|}\sum_{j\in S_i}h_j.
 \end{equation}
-Il pooling precede dropout e testa lineare. Token speciali e padding non appartengono ad alcun $S_i$ e non contribuiscono alla media. Il classificatore riceve una sequenza di parole, mentre il modello di linguaggio elabora la sequenza di subword.
+Token speciali e padding, che non appartengono ad alcun $S_i$, sono esclusi dalla media, la quale conserva la dimensione dei vettori senza introdurre parametri aggiuntivi e produce una sola rappresentazione per parola. La scelta, comune ai tre modelli, combina esplicitamente tutti i frammenti anziché utilizzare la sola prima subword~\cite{hfclassification}: in una suddivisione illustrativa di \emph{inutile} in \emph{in} e \emph{utile}, entrambi contribuiscono quindi alla rappresentazione finale.
 
-La media aggrega esplicitamente tutti i frammenti della parola e mantiene invariata la dimensione del vettore, senza introdurre parametri aggiuntivi. Ogni parola contribuisce una sola volta alla loss e alle metriche, indipendentemente dal numero di frammenti. Questa scelta offre una base semplice e condivisa per tutti e tre i modelli.
-
-La supervisione sulla sola prima subword è una strategia alternativa diffusa~\cite{hfclassification}. Usare soltanto quel frammento può fornire meno evidenza diretta delle informazioni lessicali e morfologiche distribuite negli altri frammenti. Una divisione illustrativa di \emph{inutile} in \emph{in} e \emph{utile} chiarisce la motivazione: il pooling combina le rappresentazioni delle diverse parti. L'esempio non descrive una segmentazione verificata dei tokenizer utilizzati.
-
-Negli encoder bidirezionali la prima rappresentazione è già contestualizzata anche dai frammenti successivi; il pooling ne cambia l'aggregazione senza introdurre informazione assente dall'intera rete. In GePpeTto, invece, ciascuno stato vede soltanto il prefisso e la media include gli stati dei frammenti successivi della stessa parola. Rimane escluso il contesto delle parole successive. La letteratura mostra che l'aggregazione può influire sulle prestazioni in modo dipendente da task e modello~\cite{acs2021}; non dimostra che la media sia necessariamente ottimale nel presente esperimento.
-
-La lunghezza massima degli encoder è fissata a 512 subword, inclusi i token speciali. L'audit dei tokenizer copre tutte le frasi: la sequenza più lunga richiede 332 posizioni nella condizione originale e 331 in minuscolo. Il preprocessing verifica la copertura di ogni parola e interrompe l'esecuzione in caso di superamento del limite, evitando troncature silenziose.
-
-Per GePpeTto il limite configurato è di 512 subword, come per gli encoder, entro il contesto nativo di 1\,024 posizioni. Il tokenizer utilizza \texttt{add\_prefix\_space=True} per l'allineamento dell'input pretokenizzato. La sezione di allineamento del notebook verifica la copertura delle parole nelle due condizioni prima del training e interrompe l'esecuzione in caso di superamento del limite. I controlli riguardano l'input della classificazione per parola.
-
+\newpage
 \section{Loss di classificazione per parola}
 \label{sec:encoderloss}
 La testa lineare trasforma $z_i$ in uno score per ognuna delle diciassette categorie. La softmax produce la distribuzione $p_\theta(k\mid x,i)$. L'obiettivo supervisionato è la cross-entropy:
@@ -516,9 +515,8 @@ La testa restituisce diciassette score per ogni parola e usa la cross-entropy de
 
 Per tutti i modelli i pesi sono mantenuti in FP32 e il calcolo usa autocast BF16 sulle GPU compatibili. Il riferimento hardware è una RTX 4070 SUPER con 12 GB di memoria.
 
-\chapter{Protocollo sperimentale}
-\label{chap:protocol}
 \section{Configurazioni e impostazioni sperimentali}
+\label{sec:configuration}
 Il confronto sulle maiuscole comprende tre modelli, due condizioni di input e tre seed (42, 123 e 456), per $3\times2\times3=18$ run UPOS. L'ablation FEATS riguarda soltanto il testo originale e aggiunge $3\times3=9$ training congiunti, per ventisette esecuzioni complessive. I nove nuovi run e le nove baseline UPOS originali partono dallo stesso checkpoint preaddestrato del rispettivo modello. Tutti i run prevedono dieci epoche di fine-tuning completo e lo stesso criterio di selezione.
 
 Ogni run salva configurazione, revisioni, versioni delle librerie e provenienza dei dati. L'esperimento UPOS mantiene \path{outputs/upos_trainer_v1/}; quello congiunto usa \path{outputs/upos_feats_trainer_v1/}, con directory distinte per modello, condizione e seed. Il selettore \texttt{TASK\_STAGE} vale \texttt{upos} per il confronto sulle maiuscole e \texttt{upos\_feats}, predefinito, per l'ablation morfologica. I due esperimenti hanno inizializzazioni indipendenti dai rispettivi modelli preaddestrati.
